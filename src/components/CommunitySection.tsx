@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   ArrowLeft, 
   MessageCircle, 
@@ -30,16 +30,28 @@ import {
   Star,
   Download,
   Camera,
-  Trash2
+  Trash2,
+  MoreHorizontal,
+  Bookmark,
+  Repeat,
+  ThumbsUp,
+  BarChart2,
+  MessageSquare,
+  Flag,
+  Upload,
+  Paperclip,
+  FileUp
 } from 'lucide-react';
-import { CommunityFeedPost, CollabOffer, SkillRequest } from '../types';
+import { CommunityFeedPost, CollabOffer, SkillRequest, PostComment } from '../types';
+import { readFileAsDataUrl, formatFileSize, getFileType } from '../lib/fileUpload';
 
 interface CommunitySectionProps {
   communityName: string;
   onBackToDashboard: () => void;
+  onViewProfile?: (personName: string, avatar?: string) => void;
 }
 
-export default function CommunitySection({ communityName, onBackToDashboard }: CommunitySectionProps) {
+export default function CommunitySection({ communityName, onBackToDashboard, onViewProfile }: CommunitySectionProps) {
   // Navigation & Toggle states
   const [activeSubTab, setActiveSubTab] = useState<'feeds' | 'offers' | 'requests'>('feeds');
   const [activeResourceTab, setActiveResourceTab] = useState<'media' | 'files' | 'links'>('media');
@@ -120,14 +132,15 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
 
   const sendNewChatMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!typedMessage.trim()) return;
+    if (!typedMessage.trim() && chatDraftAttachments.length === 0) return;
 
     const newMessage = {
       sender: 'You',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=120',
       content: typedMessage,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isMe: true
+      isMe: true,
+      attachments: [...chatDraftAttachments]
     };
 
     setChatStore({
@@ -135,6 +148,7 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
       [activeChatCommunity]: [...(chatStore[activeChatCommunity] || []), newMessage]
     });
     setTypedMessage('');
+    setChatDraftAttachments([]);
   };
 
   // Default feeds data reflecting the image feeds layout
@@ -147,11 +161,27 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
       timeAgo: '2 hours ago',
       content: 'Hi folks, This is my exploration about creative digital agency i have worked with different agency but this is the results. I paired dark navy space aesthetics with glassmorphic dashboards. Let me know what you guys think about the layout pairing!',
       likes: 12,
+      reposts: 12,
       comments: 12,
       shares: 32,
+      views: 178,
       image: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=800',
       images: ['https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=800'],
-      attachmentTypes: ['image']
+      attachmentTypes: ['image'],
+      commentsList: [
+        {
+          id: 'c-1',
+          author: 'Afolabi Ola',
+          authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=120',
+          rating: 5,
+          timeAgo: '1 hour ago',
+          content: 'Using the brand makes me feel I belong to something greater because the brand really deliver authenticity with affordable price',
+          likes: 12,
+          reposts: 12,
+          shares: 32,
+          views: 178
+        }
+      ]
     },
     {
       id: 'feed-2',
@@ -161,15 +191,31 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
       timeAgo: '4 hours ago',
       content: 'Figma templates for community dashboards updated! We created 12 component slots, built-in light/dark variables, and native UI tokens to assist the launch. Download the resource inside our Shared Files tab below.',
       likes: 45,
+      reposts: 8,
       comments: 8,
       shares: 15,
+      views: 312,
       image: 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?q=80&w=800',
       images: [
         'https://images.unsplash.com/photo-1531403009284-440f080d1e12?q=80&w=800',
         'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=800',
         'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=800'
       ],
-      attachmentTypes: ['image', 'image', 'video']
+      attachmentTypes: ['image', 'image', 'video'],
+      commentsList: [
+        {
+          id: 'c-2',
+          author: 'Afolabi Emmanuel',
+          authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=120',
+          rating: 5,
+          timeAgo: '3 hours ago',
+          content: 'Just tested the tokens in our new dark canvas branch, works like a charm! Loving the typography hierarchy.',
+          likes: 8,
+          reposts: 2,
+          shares: 5,
+          views: 94
+        }
+      ]
     }
   ]);
 
@@ -177,13 +223,125 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
   const [newPostImage, setNewPostImage] = useState(''); // Compatibility hook
   
   // Interactive attachment states for draft carousel to build Screens 1-5
-  const [draftAttachments, setDraftAttachments] = useState<Array<{ type: 'image' | 'video'; url: string }>>([]);
+  const [draftAttachments, setDraftAttachments] = useState<Array<{ type: 'image' | 'video' | 'file'; url: string; name?: string; size?: string }>>([]);
   const [draftAttachmentIndex, setDraftAttachmentIndex] = useState<number>(0);
   const [isDraftPlayingVideo, setIsDraftPlayingVideo] = useState<boolean>(false);
+
+  // Real File Upload input refs and drag-over state
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
+  const generalMediaInputRef = useRef<HTMLInputElement>(null);
+  const sharedMediaInputRef = useRef<HTMLInputElement>(null);
+  const sharedFileInputRef = useRef<HTMLInputElement>(null);
+  const chatFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isDraggingOverComposer, setIsDraggingOverComposer] = useState(false);
+  const [isDraggingOverMedia, setIsDraggingOverMedia] = useState(false);
+  const [isDraggingOverFiles, setIsDraggingOverFiles] = useState(false);
+  const [isProcessingUpload, setIsProcessingUpload] = useState(false);
+
+  // Dynamic Shared Media and Shared Files state
+  const [sharedMediaList, setSharedMediaList] = useState<Array<{ id: string; url: string; name: string; owner: string; size?: string; type?: string }>>([
+    { id: 'sm-1', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600', name: 'UI Tokens Visual Asset', owner: 'Afolabi Ola', size: '240 KB', type: 'image' },
+    { id: 'sm-2', url: 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?q=80&w=600', name: '3D Mesh Prototype', owner: 'Elena Rostova', size: '512 KB', type: 'image' },
+    { id: 'sm-3', url: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?q=80&w=600', name: 'Metaverse Avatar Concept', owner: 'Marcus Chen', size: '1.2 MB', type: 'image' },
+    { id: 'sm-4', url: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=600', name: 'Color Gradient Map', owner: 'Sarah Al-Mansoor', size: '380 KB', type: 'image' },
+    { id: 'sm-5', url: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=600', name: 'NFT Texture Render', owner: 'David K.', size: '420 KB', type: 'image' },
+    { id: 'sm-6', url: 'https://images.unsplash.com/photo-1618005198143-e5283b519a7f?q=80&w=600', name: 'Design System Card Asset', owner: 'Amiya Patel', size: '310 KB', type: 'image' },
+  ]);
+
+  const [sharedFilesList, setSharedFilesList] = useState<Array<{ id: string; name: string; size: string; tag: string; owner: string; url?: string }>>([
+    { id: 'sf-1', name: 'UXUX Document.pdf', size: '15.65kb', tag: 'interactive design', owner: 'Afolabi Ola' },
+    { id: 'sf-2', name: 'Dashboard Design System v2.fig', size: '142.10kb', tag: 'UI Library tokens', owner: 'Afolabi Emmanuel' },
+    { id: 'sf-3', name: 'Wireframing Guidelines Book.pdf', size: '48.95kb', tag: 'UX Research', owner: 'Afolabi Victor' },
+    { id: 'sf-4', name: 'Brand Typography Layout Assets.zip', size: '280.40kb', tag: 'Brand asset pack', owner: 'Afolabi Funke' }
+  ]);
+
+  const [chatDraftAttachments, setChatDraftAttachments] = useState<Array<{ name: string; size: string; type: 'image' | 'video' | 'file'; url: string }>>([]);
+
+  const handleProcessComposerFiles = async (files: FileList | File[], forceType?: 'image' | 'video' | 'file') => {
+    if (!files || files.length === 0) return;
+    setIsProcessingUpload(true);
+    try {
+      const itemsToAdd: Array<{ type: 'image' | 'video' | 'file'; url: string; name?: string; size?: string }> = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const dataUrl = await readFileAsDataUrl(file);
+        const fileCategory = forceType || getFileType(file);
+        itemsToAdd.push({
+          type: fileCategory,
+          url: dataUrl,
+          name: file.name,
+          size: formatFileSize(file.size)
+        });
+      }
+      setDraftAttachments(prev => {
+        const nextList = [...prev, ...itemsToAdd];
+        setDraftAttachmentIndex(nextList.length - 1);
+        return nextList;
+      });
+      setIsDraftPlayingVideo(false);
+    } catch (err) {
+      console.error("Failed to read files:", err);
+    } finally {
+      setIsProcessingUpload(false);
+    }
+  };
+
+  const handleSharedMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const dataUrl = await readFileAsDataUrl(file);
+      const cat = getFileType(file);
+      const newMedia = {
+        id: `sm-${Date.now()}-${i}`,
+        url: dataUrl,
+        name: file.name,
+        owner: 'Afolabi Ola (You)',
+        size: formatFileSize(file.size),
+        type: cat
+      };
+      setSharedMediaList(prev => [newMedia, ...prev]);
+    }
+    e.target.value = '';
+  };
+
+  const handleSharedFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const dataUrl = await readFileAsDataUrl(file);
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'file';
+      const newFile = {
+        id: `sf-${Date.now()}-${i}`,
+        name: file.name,
+        size: formatFileSize(file.size),
+        tag: ext.toUpperCase() + ' resource',
+        owner: 'Afolabi Ola (You)',
+        url: dataUrl
+      };
+      setSharedFilesList(prev => [newFile, ...prev]);
+    }
+    e.target.value = '';
+  };
 
   // Keep track of the slide index / playing video state inside feed streams
   const [feedMediaIndices, setFeedMediaIndices] = useState<Record<string, number>>({});
   const [playingFeeds, setPlayingFeeds] = useState<Record<string, boolean>>({});
+
+  // Comments, Likes, Reposts, Saves and Expanded text interactive states
+  const [openComments, setOpenComments] = useState<Record<string, boolean>>({ 'feed-1': true });
+  const [commentInputTexts, setCommentInputTexts] = useState<Record<string, string>>({});
+  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({ 'feed-1': true });
+  const [repostedPosts, setRepostedPosts] = useState<Record<string, boolean>>({});
+  const [savedPosts, setSavedPosts] = useState<Record<string, boolean>>({});
+  const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
+  const [likedComments, setLikedComments] = useState<Record<string, boolean>>({ 'feed-1-c-1': true });
+  const [expandedPosts, setExpandedPosts] = useState<Record<string, boolean>>({});
 
   // Mock Preset Options for Screens 1-5 in Mockups
   const composerPresets = {
@@ -248,11 +406,14 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
       timeAgo: 'Just now',
       content: newPostText,
       likes: 0,
+      reposts: 0,
       comments: 0,
       shares: 0,
+      views: 1,
       image: draftAttachments.length > 0 ? draftAttachments[0].url : undefined,
       images: draftAttachments.map(a => a.url),
-      attachmentTypes: draftAttachments.map(a => a.type)
+      attachmentTypes: draftAttachments.map(a => a.type),
+      commentsList: []
     };
 
     setFeeds([post, ...feeds]);
@@ -374,12 +535,93 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
   };
 
   const toggleLikePost = (postId: string) => {
-    setFeeds(feeds.map(f => {
+    const isLiked = likedPosts[postId];
+    setLikedPosts(prev => ({ ...prev, [postId]: !isLiked }));
+    setFeeds(prev => prev.map(f => {
       if (f.id === postId) {
-        return { ...f, likes: f.likes + 1 };
+        return { ...f, likes: isLiked ? Math.max(0, f.likes - 1) : f.likes + 1 };
       }
       return f;
     }));
+  };
+
+  const toggleRepostPost = (postId: string) => {
+    const isReposted = repostedPosts[postId];
+    setRepostedPosts(prev => ({ ...prev, [postId]: !isReposted }));
+    setFeeds(prev => prev.map(f => {
+      if (f.id === postId) {
+        const curReposts = f.reposts || 0;
+        return { ...f, reposts: isReposted ? Math.max(0, curReposts - 1) : curReposts + 1 };
+      }
+      return f;
+    }));
+  };
+
+  const toggleSavePost = (postId: string) => {
+    setSavedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
+    setOpenPostMenuId(null);
+  };
+
+  const toggleCommentsView = (postId: string) => {
+    setOpenComments(prev => ({ ...prev, [postId]: !prev[postId] }));
+  };
+
+  const handleAddComment = (postId: string) => {
+    const text = (commentInputTexts[postId] || '').trim();
+    if (!text) return;
+
+    const newComment: PostComment = {
+      id: `c-${Date.now()}`,
+      author: 'Afolabi Ola',
+      authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=120',
+      rating: 5,
+      timeAgo: 'Just now',
+      content: text,
+      likes: 0,
+      reposts: 0,
+      shares: 0,
+      views: 1
+    };
+
+    setFeeds(prev => prev.map(f => {
+      if (f.id === postId) {
+        const existingComments = f.commentsList || [];
+        return {
+          ...f,
+          comments: f.comments + 1,
+          commentsList: [...existingComments, newComment]
+        };
+      }
+      return f;
+    }));
+
+    setCommentInputTexts(prev => ({ ...prev, [postId]: '' }));
+    setOpenComments(prev => ({ ...prev, [postId]: true }));
+  };
+
+  const toggleLikeComment = (postId: string, commentId: string) => {
+    const key = `${postId}-${commentId}`;
+    const isLiked = likedComments[key];
+    setLikedComments(prev => ({ ...prev, [key]: !isLiked }));
+
+    setFeeds(prev => prev.map(f => {
+      if (f.id === postId && f.commentsList) {
+        return {
+          ...f,
+          commentsList: f.commentsList.map(c => {
+            if (c.id === commentId) {
+              return { ...c, likes: isLiked ? Math.max(0, c.likes - 1) : c.likes + 1 };
+            }
+            return c;
+          })
+        };
+      }
+      return f;
+    }));
+  };
+
+  const toggleExpandPost = (postId: string) => {
+    setExpandedPosts(prev => ({ ...prev, [postId]: !prev[postId] }));
   };
 
   const handleConnectMember = (name: string) => {
@@ -503,7 +745,7 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
                 </span>
               </div>
 
-              {(chatStore[activeChatCommunity] || []).map((msg, i) => (
+              {(chatStore[activeChatCommunity] || []).map((msg: any, i) => (
                 <div 
                   key={i} 
                   className={`flex gap-3 max-w-[85%] ${msg.isMe ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
@@ -520,12 +762,31 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
                       {msg.sender === 'You' ? 'You' : msg.sender}
                     </span>
                     <div 
-                      className={`p-3.5 rounded-2xl text-xs leading-relaxed
+                      className={`p-3.5 rounded-2xl text-xs leading-relaxed flex flex-col gap-2
                         ${msg.isMe 
                           ? 'bg-amber-500 text-stone-950 rounded-tr-none font-medium' 
                           : 'bg-white border border-stone-200 text-stone-800 rounded-tl-none'}`}
                     >
-                      {msg.content}
+                      {msg.content && <span>{msg.content}</span>}
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="flex flex-col gap-1.5 mt-1">
+                          {msg.attachments.map((att: any, attIdx: number) => (
+                            <div key={attIdx} className="rounded-xl overflow-hidden bg-black/10 p-1.5 flex items-center gap-2">
+                              {att.type === 'image' ? (
+                                <img src={att.url} alt={att.name || 'Attachment'} className="w-20 h-20 object-cover rounded-lg" />
+                              ) : att.type === 'video' ? (
+                                <video src={att.url} controls className="w-36 rounded-lg max-h-24" />
+                              ) : (
+                                <div className="flex items-center gap-2 text-[11px] p-1 font-sans">
+                                  <FileText className="w-4 h-4 text-stone-700" />
+                                  <span className="truncate max-w-[140px] font-bold">{att.name}</span>
+                                  <span className="text-[10px] opacity-75 font-mono">{att.size}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <span className="text-[9px] text-stone-400 mt-1 pl-1 font-mono">{msg.time}</span>
                   </div>
@@ -534,22 +795,75 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
             </div>
 
             {/* Input Action Bar */}
-            <form onSubmit={sendNewChatMessage} className="p-4 bg-white border-t border-stone-200 flex gap-2 items-center" id="chat-text-composer-form">
-              <input 
-                type="text" 
-                value={typedMessage}
-                onChange={(e) => setTypedMessage(e.target.value)}
-                placeholder="Type a message or discuss skills..."
-                className="flex-1 bg-stone-50 text-xs border border-stone-200 rounded-full px-4.5 py-3 outline-none focus:border-[#FFB300] transition"
-                id="typed-chat-input-element"
-              />
-              <button 
-                type="submit"
-                className="p-3 bg-stone-950 hover:bg-stone-800 text-white rounded-full transition flex items-center justify-center shrink-0 cursor-pointer"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </form>
+            <div className="bg-white border-t border-stone-200 p-3 flex flex-col gap-2">
+              {chatDraftAttachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 px-2">
+                  {chatDraftAttachments.map((att, attI) => (
+                    <div key={attI} className="bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 text-[11px] flex items-center gap-1.5 text-stone-800">
+                      {att.type === 'image' ? <ImageIcon className="w-3.5 h-3.5 text-emerald-600" /> : <FileText className="w-3.5 h-3.5 text-blue-600" />}
+                      <span className="max-w-[120px] truncate font-medium">{att.name}</span>
+                      <button 
+                        type="button" 
+                        onClick={() => setChatDraftAttachments(prev => prev.filter((_, idx) => idx !== attI))}
+                        className="text-stone-400 hover:text-stone-700 ml-1 cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <form onSubmit={sendNewChatMessage} className="flex gap-2 items-center" id="chat-text-composer-form">
+                <input 
+                  type="file" 
+                  ref={chatFileInputRef} 
+                  multiple 
+                  className="hidden" 
+                  onChange={async (e) => {
+                    const files = e.target.files;
+                    if (!files || files.length === 0) return;
+                    for (let i = 0; i < files.length; i++) {
+                      const file = files[i];
+                      const dataUrl = await readFileAsDataUrl(file);
+                      const cat = getFileType(file);
+                      setChatDraftAttachments(prev => [...prev, {
+                        name: file.name,
+                        size: formatFileSize(file.size),
+                        type: cat,
+                        url: dataUrl
+                      }]);
+                    }
+                    e.target.value = '';
+                  }} 
+                />
+
+                <button 
+                  type="button"
+                  onClick={() => chatFileInputRef.current?.click()}
+                  className="p-2.5 text-stone-500 hover:text-stone-800 hover:bg-stone-100 rounded-full transition cursor-pointer"
+                  title="Attach file or photo"
+                >
+                  <Paperclip className="w-4 h-4" />
+                </button>
+
+                <input 
+                  type="text" 
+                  value={typedMessage}
+                  onChange={(e) => setTypedMessage(e.target.value)}
+                  placeholder="Type a message or attach files..."
+                  className="flex-1 bg-stone-50 text-xs border border-stone-200 rounded-full px-4.5 py-3 outline-none focus:border-[#FFB300] transition"
+                  id="typed-chat-input-element"
+                />
+                <button 
+                  type="submit"
+                  disabled={!typedMessage.trim() && chatDraftAttachments.length === 0}
+                  className="p-3 bg-stone-950 hover:bg-stone-800 disabled:opacity-40 text-white rounded-full transition flex items-center justify-center shrink-0 cursor-pointer"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </form>
+            </div>
 
           </div>
         </div>
@@ -649,7 +963,75 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
             <div className="lg:col-span-8 flex flex-col gap-6 text-left" id="com-split-column-left">
               
               {/* Write Post Box card matching screens */}
-              <div className="bg-white border border-[#EBEBEB] p-5 rounded-2xl flex flex-col gap-4 shadow-sm" id="com-composer-post-card">
+              <div 
+                className={`bg-white border p-5 rounded-2xl flex flex-col gap-4 shadow-sm transition-colors ${
+                  isDraggingOverComposer ? 'border-[#FFB300] bg-amber-50/20' : 'border-[#EBEBEB]'
+                }`} 
+                id="com-composer-post-card"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingOverComposer(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingOverComposer(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingOverComposer(false);
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handleProcessComposerFiles(e.dataTransfer.files);
+                  }
+                }}
+              >
+                {/* Hidden Real File Inputs */}
+                <input 
+                  type="file" 
+                  ref={imageInputRef} 
+                  accept="image/*" 
+                  multiple 
+                  className="hidden" 
+                  onChange={(e) => {
+                    if (e.target.files) handleProcessComposerFiles(e.target.files, 'image');
+                    e.target.value = '';
+                  }} 
+                />
+                <input 
+                  type="file" 
+                  ref={videoInputRef} 
+                  accept="video/*" 
+                  multiple 
+                  className="hidden" 
+                  onChange={(e) => {
+                    if (e.target.files) handleProcessComposerFiles(e.target.files, 'video');
+                    e.target.value = '';
+                  }} 
+                />
+                <input 
+                  type="file" 
+                  ref={docInputRef} 
+                  accept=".pdf,.doc,.docx,.zip,.fig,.txt,application/*" 
+                  multiple 
+                  className="hidden" 
+                  onChange={(e) => {
+                    if (e.target.files) handleProcessComposerFiles(e.target.files, 'file');
+                    e.target.value = '';
+                  }} 
+                />
+                <input 
+                  type="file" 
+                  ref={generalMediaInputRef} 
+                  accept="image/*,video/*,.pdf,.doc,.docx,.zip,.fig,.txt" 
+                  multiple 
+                  className="hidden" 
+                  onChange={(e) => {
+                    if (e.target.files) handleProcessComposerFiles(e.target.files);
+                    e.target.value = '';
+                  }} 
+                />
                 
                 {/* Visual Specifications Presets Switcher Row */}
                 <div className="flex flex-wrap items-center gap-1.5 p-2 bg-stone-50 border border-stone-150 rounded-xl" id="com-preset-selector-row">
@@ -715,22 +1097,60 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
                   />
                 </div>
 
+                {/* Drag over indicator */}
+                {isDraggingOverComposer && (
+                  <div className="p-3 bg-amber-50 border border-dashed border-[#FFB300] rounded-xl flex items-center justify-center gap-2 text-[#B78103] font-bold text-xs">
+                    <Upload className="w-4 h-4 text-[#FFB300]" />
+                    <span>Drop your real image, video, or document here to attach</span>
+                  </div>
+                )}
+
+                {/* Upload processing indicator */}
+                {isProcessingUpload && (
+                  <div className="p-2 bg-stone-100 rounded-xl flex items-center justify-center gap-2 text-stone-600 text-xs font-mono">
+                    <span className="w-3 h-3 border-2 border-stone-600 border-t-transparent rounded-full animate-spin"></span>
+                    <span>Processing attached file(s)...</span>
+                  </div>
+                )}
+
                 {/* 🛑 HIGH-FIDELITY DYNAMIC ATTACHMENTS CAROUSEL STAGE */}
                 {draftAttachments.length > 0 && (
-                  <div className="relative w-full aspect-video md:max-h-72 bg-stone-950 border border-stone-200 rounded-xl overflow-hidden shadow-inner select-none" id="composer-attachment-stage">
-                    <img 
-                      src={draftAttachments[draftAttachmentIndex]?.url} 
-                      alt="Dynamic draft presentation model" 
-                      className={`w-full h-full object-cover transition-all duration-300 ${isDraftPlayingVideo && draftAttachments[draftAttachmentIndex]?.type === 'video' ? 'brightness-50' : 'brightness-90'}`}
-                      referrerPolicy="no-referrer"
-                    />
+                  <div className="relative w-full aspect-video md:max-h-72 bg-stone-950 border border-stone-200 rounded-xl overflow-hidden shadow-inner select-none flex items-center justify-center" id="composer-attachment-stage">
+                    {draftAttachments[draftAttachmentIndex]?.type === 'file' ? (
+                      <div className="flex flex-col items-center justify-center p-6 text-center text-white gap-2 max-w-sm">
+                        <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20">
+                          <FileText className="w-8 h-8 text-[#FFB300]" />
+                        </div>
+                        <span className="font-bold text-sm truncate max-w-xs text-stone-100">
+                          {draftAttachments[draftAttachmentIndex]?.name || 'Document File'}
+                        </span>
+                        {draftAttachments[draftAttachmentIndex]?.size && (
+                          <span className="text-xs text-stone-400 font-mono">
+                            {draftAttachments[draftAttachmentIndex]?.size}
+                          </span>
+                        )}
+                      </div>
+                    ) : draftAttachments[draftAttachmentIndex]?.type === 'video' && draftAttachments[draftAttachmentIndex]?.url.startsWith('data:video') ? (
+                      <video 
+                        src={draftAttachments[draftAttachmentIndex]?.url} 
+                        controls 
+                        className="w-full h-full object-contain bg-black" 
+                      />
+                    ) : (
+                      <img 
+                        src={draftAttachments[draftAttachmentIndex]?.url} 
+                        alt="Dynamic draft presentation model" 
+                        className={`w-full h-full object-cover transition-all duration-300 ${isDraftPlayingVideo && draftAttachments[draftAttachmentIndex]?.type === 'video' ? 'brightness-50' : 'brightness-90'}`}
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
 
                     {/* Central Play overlay button for video draft simulation */}
-                    {draftAttachments[draftAttachmentIndex]?.type === 'video' && (
+                    {draftAttachments[draftAttachmentIndex]?.type === 'video' && !draftAttachments[draftAttachmentIndex]?.url.startsWith('data:video') && (
                       <button 
                         type="button"
                         onClick={() => setIsDraftPlayingVideo(!isDraftPlayingVideo)}
-                        className="absolute inset-0 m-auto w-14 h-14 bg-black/60 backdrop-blur-xs hover:bg-black/80 text-white rounded-full flex items-center justify-center transition active:scale-95 shadow-lg border border-white/10"
+                        className="absolute inset-0 m-auto w-14 h-14 bg-black/60 backdrop-blur-xs hover:bg-black/80 text-white rounded-full flex items-center justify-center transition active:scale-95 shadow-lg border border-white/10 cursor-pointer"
                         title={isDraftPlayingVideo ? "Pause draft" : "Play draft"}
                       >
                         {isDraftPlayingVideo ? (
@@ -752,38 +1172,40 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
                       </div>
                     )}
 
+                    {/* File name & size badge indicator at top */}
+                    {draftAttachments[draftAttachmentIndex]?.name && (
+                      <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-xs text-white text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 max-w-[70%] truncate shadow-sm">
+                        {draftAttachments[draftAttachmentIndex].name} • {draftAttachments[draftAttachmentIndex].size}
+                      </div>
+                    )}
+
                     {/* OVERLAY BOTTOM-LEFT controls for Camera / Gallery adding or Trash removal */}
                     <div className="absolute bottom-4 left-4 flex gap-2">
                       <button 
                         type="button"
-                        onClick={() => {
-                          const url = prompt("Enter Unsplash Image URL, or submit background template:");
-                          if (url) {
-                            setDraftAttachments([...draftAttachments, { type: 'image', url }]);
-                            setDraftAttachmentIndex(draftAttachments.length);
-                            setIsDraftPlayingVideo(false);
-                          }
-                        }}
-                        className="w-8 h-8 bg-black/75 hover:bg-black text-white border border-white/15 rounded-full flex items-center justify-center transition active:scale-90 shadow-sm"
-                        title="Attach Camera/Image"
+                        onClick={() => imageInputRef.current?.click()}
+                        className="w-8 h-8 bg-black/75 hover:bg-black text-white border border-white/15 rounded-full flex items-center justify-center transition active:scale-90 shadow-sm cursor-pointer"
+                        title="Upload Image from computer"
                       >
                         <Camera className="w-4 h-4 text-stone-300 hover:text-white" />
                       </button>
 
                       <button 
                         type="button"
-                        onClick={() => {
-                          const url = prompt("Enter Unsplash Video Thumbnail URL:", "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=800");
-                          if (url) {
-                            setDraftAttachments([...draftAttachments, { type: 'video', url }]);
-                            setDraftAttachmentIndex(draftAttachments.length);
-                            setIsDraftPlayingVideo(false);
-                          }
-                        }}
-                        className="w-8 h-8 bg-black/75 hover:bg-black text-white border border-white/15 rounded-full flex items-center justify-center transition active:scale-90 shadow-sm"
-                        title="Attach Video"
+                        onClick={() => videoInputRef.current?.click()}
+                        className="w-8 h-8 bg-black/75 hover:bg-black text-white border border-white/15 rounded-full flex items-center justify-center transition active:scale-90 shadow-sm cursor-pointer"
+                        title="Upload Video from computer"
                       >
                         <VideoIcon className="w-4 h-4 text-stone-300 hover:text-white" />
+                      </button>
+
+                      <button 
+                        type="button"
+                        onClick={() => docInputRef.current?.click()}
+                        className="w-8 h-8 bg-black/75 hover:bg-black text-white border border-white/15 rounded-full flex items-center justify-center transition active:scale-90 shadow-sm cursor-pointer"
+                        title="Upload Document / File"
+                      >
+                        <FileText className="w-4 h-4 text-stone-300 hover:text-white" />
                       </button>
 
                       <button 
@@ -795,7 +1217,7 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
                           setDraftAttachmentIndex(0);
                           setIsDraftPlayingVideo(false);
                         }}
-                        className="w-8 h-8 bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-900/40 rounded-full flex items-center justify-center transition active:scale-95 shadow-sm"
+                        className="w-8 h-8 bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-900/40 rounded-full flex items-center justify-center transition active:scale-95 shadow-sm cursor-pointer"
                         title="Remove current item"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -843,16 +1265,10 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
 
                 {/* Composers option attachments & broadcast trigger button */}
                 <div className="flex justify-between items-center border-t border-stone-100 pt-3" id="com-composer-footer">
-                  <div className="flex items-center gap-4 text-stone-500 text-xs font-semibold" id="com-composer-attachments">
+                  <div className="flex flex-wrap items-center gap-4 text-stone-500 text-xs font-semibold" id="com-composer-attachments">
                     <button 
                       type="button"
-                      onClick={() => {
-                        const imgUrl = prompt("Enter an Unsplash Image URL to attach:", "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=800");
-                        if (imgUrl) {
-                          setDraftAttachments([...draftAttachments, { type: 'image', url: imgUrl }]);
-                          setDraftAttachmentIndex(draftAttachments.length);
-                        }
-                      }}
+                      onClick={() => imageInputRef.current?.click()}
                       className="flex items-center gap-1.5 hover:text-stone-900 transition text-[13px] font-sans cursor-pointer"
                     >
                       <ImageIcon className="w-4 h-4 text-emerald-500" />
@@ -861,22 +1277,25 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
                     
                     <button 
                       type="button"
-                      onClick={() => {
-                        const vidUrl = prompt("Enter an Unsplash Video Poster URL to attach:", "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=800");
-                        if (vidUrl) {
-                          setDraftAttachments([...draftAttachments, { type: 'video', url: vidUrl }]);
-                          setDraftAttachmentIndex(draftAttachments.length);
-                        }
-                      }}
+                      onClick={() => videoInputRef.current?.click()}
                       className="flex items-center gap-1.5 hover:text-stone-900 transition text-[13px] font-sans cursor-pointer"
                     >
                       <VideoIcon className="w-4 h-4 text-amber-500" />
                       <span>Video</span>
                     </button>
 
+                    <button 
+                      type="button"
+                      onClick={() => docInputRef.current?.click()}
+                      className="flex items-center gap-1.5 hover:text-stone-900 transition text-[13px] font-sans cursor-pointer"
+                    >
+                      <FileText className="w-4 h-4 text-blue-500" />
+                      <span>Document</span>
+                    </button>
+
                     {draftAttachments.length > 0 && (
                       <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-mono flex items-center gap-1">
-                        ✓ {draftAttachments.length} media item(s) attached
+                        ✓ {draftAttachments.length} file(s) attached
                       </span>
                     )}
                   </div>
@@ -933,195 +1352,448 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
                 {/* SUBTAB CONTENT 1: FEEDS STREAM RENDERER */}
                 {activeSubTab === 'feeds' && (
                   <div className="flex flex-col gap-5" id="feed-scroller-layout">
-                    {feeds.map((feed) => (
-                      <div 
-                        key={feed.id} 
-                        className="bg-white border border-[#EBEBEB] p-5 rounded-2xl flex flex-col text-left transition duration-300 hover:shadow-xs"
-                        id={`feed-row-${feed.id}`}
-                      >
-                        {/* Upper row meta */}
-                        <div className="flex justify-between items-start mb-3" id={`feed-top-row-${feed.id}`}>
-                          <div className="flex items-center gap-3" id={`feed-profile-block-${feed.id}`}>
-                            <img 
-                              src={feed.authorAvatar} 
-                              alt={feed.author} 
-                              className="w-10 h-10 rounded-full border border-stone-200 object-cover"
-                              referrerPolicy="no-referrer"
-                            />
-                            <div className="flex flex-col text-left gap-0.5" id={`feed-author-col-${feed.id}`}>
-                              <span className="font-bold text-sm text-stone-900">{feed.author}</span>
-                              {/* 5 Rating Stars */}
-                              <div className="flex items-center">
-                                {Array.from({ length: 5 }).map((_, sIdx) => (
-                                  <Star key={sIdx} className="w-3.5 h-3.5 fill-amber-400 text-amber-400 stroke-[1px]" />
-                                ))}
-                              </div>
-                            </div>
-                          </div>
+                    {feeds.map((feed) => {
+                      const isPostLiked = likedPosts[feed.id];
+                      const isPostReposted = repostedPosts[feed.id];
+                      const isPostSaved = savedPosts[feed.id];
+                      const isCommentsOpen = openComments[feed.id] ?? false;
+                      const isMenuOpen = openPostMenuId === feed.id;
+                      const isExpanded = expandedPosts[feed.id] ?? false;
+                      const commentsCount = feed.commentsList ? feed.commentsList.length : feed.comments;
+                      const textLimit = 120;
+                      const shouldTruncate = feed.content.length > textLimit;
 
-                          <div className="flex items-center gap-2" id={`feed-actions-dropdown-${feed.id}`}>
-                            <span className="text-xs text-stone-400 font-mono">{feed.timeAgo}</span>
-                          </div>
-                        </div>
-
-                        {/* Post Message Text Paragraph */}
-                        <p className="text-[13px] text-stone-600 leading-relaxed text-left mb-4 pr-1 font-sans mt-2" id={`feed-p-text-${feed.id}`}>
-                          {feed.content}
-                        </p>
-
-                        {/* Responsive interactive dynamic media stage if provided */}
-                        {feed.images && feed.images.length > 0 ? (
-                          (() => {
-                            const activeIdx = feedMediaIndices[feed.id] || 0;
-                            const activeUrl = feed.images[activeIdx];
-                            const activeType = feed.attachmentTypes ? feed.attachmentTypes[activeIdx] : 'image';
-                            const isPlaying = playingFeeds[feed.id] || false;
-
-                            return (
-                              <div className="w-full aspect-video md:max-h-72 bg-stone-950 border border-stone-200/60 rounded-xl overflow-hidden mb-4 relative shadow-sm group select-none" id={`feed-interactive-stage-${feed.id}`}>
+                      return (
+                        <div 
+                          key={feed.id} 
+                          className="bg-white border border-[#EBEBEB] p-5 sm:p-6 rounded-2xl flex flex-col text-left transition duration-300 hover:shadow-xs relative"
+                          id={`feed-row-${feed.id}`}
+                        >
+                          {/* Upper row meta */}
+                          <div className="flex justify-between items-start mb-3" id={`feed-top-row-${feed.id}`}>
+                            <div 
+                              onClick={() => onViewProfile && onViewProfile(feed.author, feed.authorAvatar)}
+                              className={`flex items-center gap-3 ${onViewProfile ? 'cursor-pointer group' : ''}`} 
+                              id={`feed-profile-block-${feed.id}`}
+                              title={onViewProfile ? `View ${feed.author}'s profile` : undefined}
+                            >
+                              {/* Avatar with online green status dot */}
+                              <div className="relative shrink-0">
                                 <img 
-                                  src={activeUrl} 
-                                  alt="Feed presentation visual" 
-                                  className={`w-full h-full object-cover transition-all duration-300 ${isPlaying && activeType === 'video' ? 'brightness-50' : 'brightness-90'}`}
+                                  src={feed.authorAvatar} 
+                                  alt={feed.author} 
+                                  className="w-10 h-10 rounded-full border border-stone-200 object-cover group-hover:ring-2 group-hover:ring-[#FFC107] transition"
                                   referrerPolicy="no-referrer"
                                 />
-
-                                {/* Central Play overlay button for video */}
-                                {activeType === 'video' && (
-                                  <button 
-                                    type="button"
-                                    onClick={() => {
-                                      setPlayingFeeds(prev => ({ ...prev, [feed.id]: !prev[feed.id] }));
-                                    }}
-                                    className="absolute inset-0 m-auto w-14 h-14 bg-black/60 backdrop-blur-xs hover:bg-black/80 text-white rounded-full flex items-center justify-center transition active:scale-95 shadow-md border border-white/10"
-                                    title={isPlaying ? "Pause presentation video" : "Play presentation video"}
-                                  >
-                                    {isPlaying ? (
-                                      <div className="flex gap-1 items-center">
-                                        <span className="w-1.5 h-6 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></span>
-                                        <span className="w-1.5 h-6 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></span>
-                                        <span className="w-1.5 h-6 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></span>
-                                      </div>
-                                    ) : (
-                                      <Play className="w-5 h-5 fill-white ml-0.5 text-white animate-pulse" />
-                                    )}
-                                  </button>
-                                )}
-
-                                {/* Video status simulation bar */}
-                                {activeType === 'video' && isPlaying && (
-                                  <div className="absolute bottom-16 left-0 right-0 px-4 py-1.5 bg-black/45 text-[9px] text-[#FFB300] font-mono text-center animate-pulse tracking-wide">
-                                    ▶ Presenting Interactive Video • Click Center Circle to Pause
-                                  </div>
-                                )}
-
-                                {/* Carousel dots controller for multi-media index swiping in feed */}
-                                {feed.images && feed.images.length > 1 && (
-                                  <div className="absolute bottom-4 right-4 bg-black/80 text-white border border-white/10 rounded-full px-3 py-1.5 flex items-center gap-2.5 shadow-md">
-                                    <button 
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setFeedMediaIndices(prev => {
-                                          const currIdx = prev[feed.id] || 0;
-                                          const nextIdx = (currIdx - 1 + feed.images!.length) % feed.images!.length;
-                                          return { ...prev, [feed.id]: nextIdx };
-                                        });
-                                        // Reset playing state on page change
-                                        setPlayingFeeds(prev => ({ ...prev, [feed.id]: false }));
-                                      }}
-                                      className="text-stone-300 hover:text-white transition cursor-pointer p-0.5"
-                                    >
-                                      <ChevronLeft className="w-3.5 h-3.5" />
-                                    </button>
-
-                                    <div className="flex items-center gap-1.5">
-                                      {feed.images.map((_, dotIdx) => (
-                                        <span 
-                                          key={dotIdx} 
-                                          className={`block rounded-full transition-all duration-300
-                                            ${activeIdx === dotIdx ? 'w-2 h-2 bg-[#FFB300]' : 'w-3 h-[2px] bg-white/40'}`}
-                                        />
-                                      ))}
-                                    </div>
-
-                                    <button 
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setFeedMediaIndices(prev => {
-                                          const currIdx = prev[feed.id] || 0;
-                                          const nextIdx = (currIdx + 1) % feed.images!.length;
-                                          return { ...prev, [feed.id]: nextIdx };
-                                        });
-                                        setPlayingFeeds(prev => ({ ...prev, [feed.id]: false }));
-                                      }}
-                                      className="text-stone-300 hover:text-white transition cursor-pointer p-0.5"
-                                    >
-                                      <ChevronRight className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                )}
+                                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white"></span>
                               </div>
-                            );
-                          })()
-                        ) : (
-                          feed.image && (
-                            <div className="w-full aspect-video md:max-h-80 overflow-hidden rounded-xl border border-stone-100 bg-stone-50 mb-4" id={`feed-illustration-box-${feed.id}`}>
-                              <img 
-                                src={feed.image} 
-                                alt="Feed illustration visual and modern graphics workspace preview" 
-                                className="w-full h-full object-cover"
-                                referrerPolicy="no-referrer"
-                              />
+
+                              <div className="flex flex-col text-left gap-0.5" id={`feed-author-col-${feed.id}`}>
+                                <span className="font-bold text-sm text-stone-900 group-hover:text-amber-700 group-hover:underline transition">{feed.author}</span>
+                                {/* 5 Rating Stars */}
+                                <div className="flex items-center">
+                                  {Array.from({ length: 5 }).map((_, sIdx) => (
+                                    <Star key={sIdx} className="w-3.5 h-3.5 fill-[#FFB300] text-[#FFB300] stroke-[1px]" />
+                                  ))}
+                                </div>
+                              </div>
                             </div>
-                          )
-                        )}
 
-                        {/* Footer indicators (Like, Retweet, Comment, Share) */}
-                        <div className="flex items-center gap-6 border-t border-stone-50/80 pt-3.5 text-xs text-stone-500 font-medium" id={`feed-interactive-footer-${feed.id}`}>
-                          <button 
-                            onClick={() => toggleLikePost(feed.id)}
-                            className="flex items-center gap-1.5 hover:text-stone-900 transition whitespace-nowrap cursor-pointer"
-                          >
-                            <Heart className="w-4 h-4 text-stone-300 hover:text-rose-500 hover:fill-rose-500" />
-                            <span>{feed.likes}</span>
-                          </button>
+                            {/* Timestamp and Three dots menu */}
+                            <div className="flex items-center gap-2 relative" id={`feed-actions-dropdown-${feed.id}`}>
+                              <span className="text-xs text-stone-400 font-mono">{feed.timeAgo}</span>
+                              
+                              <button 
+                                type="button"
+                                onClick={() => setOpenPostMenuId(isMenuOpen ? null : feed.id)}
+                                className="p-1 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition cursor-pointer"
+                                id={`post-menu-btn-${feed.id}`}
+                                title="More options"
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
 
-                          <button 
-                            onClick={() => {
-                              alert("Post reposted with citation to your native feeds dashboard!");
-                            }}
-                            className="flex items-center gap-1.5 hover:text-stone-900 transition whitespace-nowrap cursor-pointer"
-                          >
-                            <span className="text-xs font-bold text-stone-300 hover:text-emerald-500">⇄</span>
-                            <span>{feed.shares}</span>
-                          </button>
+                              {/* Dropdown menu */}
+                              {isMenuOpen && (
+                                <div 
+                                  className="absolute right-0 top-7 z-30 bg-white border border-stone-200 rounded-xl shadow-lg py-1.5 w-40 text-xs text-stone-700 flex flex-col font-medium"
+                                  id={`post-dropdown-${feed.id}`}
+                                >
+                                  <button 
+                                    onClick={() => toggleSavePost(feed.id)}
+                                    className="flex items-center gap-2 px-3.5 py-2 hover:bg-stone-50 text-left transition cursor-pointer"
+                                  >
+                                    <Bookmark className={`w-3.5 h-3.5 ${isPostSaved ? 'text-amber-500 fill-amber-500' : 'text-stone-400'}`} />
+                                    <span>{isPostSaved ? 'Saved in bookmarks' : 'Save Post'}</span>
+                                  </button>
+                                  <button 
+                                    onClick={() => {
+                                      toggleRepostPost(feed.id);
+                                      setOpenPostMenuId(null);
+                                    }}
+                                    className="flex items-center gap-2 px-3.5 py-2 hover:bg-stone-50 text-left transition cursor-pointer"
+                                  >
+                                    <Repeat className="w-3.5 h-3.5 text-stone-400" />
+                                    <span>{isPostReposted ? 'Undo Repost' : 'Repost Post'}</span>
+                                  </button>
+                                  <button 
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(window.location.href);
+                                      setOpenPostMenuId(null);
+                                      alert("Post URL copied to clipboard!");
+                                    }}
+                                    className="flex items-center gap-2 px-3.5 py-2 hover:bg-stone-50 text-left transition cursor-pointer"
+                                  >
+                                    <Share2 className="w-3.5 h-3.5 text-stone-400" />
+                                    <span>Copy link</span>
+                                  </button>
+                                  <button 
+                                    onClick={() => {
+                                      setOpenPostMenuId(null);
+                                      alert("Post reported to community moderators for review.");
+                                    }}
+                                    className="flex items-center gap-2 px-3.5 py-2 hover:bg-rose-50 text-rose-600 text-left transition cursor-pointer border-t border-stone-100"
+                                  >
+                                    <Flag className="w-3.5 h-3.5 text-rose-500" />
+                                    <span>Report Post</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
 
-                          <button 
-                            onClick={() => {
-                              const comment = prompt("Enter your comment text on Afolabi's post:");
-                              if (comment) alert(`Comment posted contextually: "${comment}"`);
-                            }}
-                            className="flex items-center gap-1.5 hover:text-stone-900 transition whitespace-nowrap cursor-pointer"
-                          >
-                            <MessageCircle className="w-4 h-4 text-stone-300" />
-                            <span>{feed.comments}</span>
-                          </button>
+                          {/* Post Message Text Paragraph with see more/see less */}
+                          <div className="mb-4 pr-1 text-left" id={`feed-p-text-${feed.id}`}>
+                            <p className="text-[13px] text-stone-700 leading-relaxed font-sans">
+                              {shouldTruncate && !isExpanded 
+                                ? `${feed.content.slice(0, textLimit)}...`
+                                : feed.content
+                              }
+                              {shouldTruncate && (
+                                <button 
+                                  type="button"
+                                  onClick={() => toggleExpandPost(feed.id)}
+                                  className="text-stone-400 hover:text-stone-700 font-medium ml-1 cursor-pointer transition text-[12px] inline"
+                                >
+                                  {isExpanded ? 'see less' : 'see more'}
+                                </button>
+                              )}
+                            </p>
+                          </div>
 
-                          <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText(window.location.href);
-                              alert("Post snippet connection link copied to your clipboard!");
-                            }}
-                            className="flex items-center gap-1.5 hover:text-stone-900 transition ml-auto whitespace-nowrap cursor-pointer"
-                          >
-                            <Share2 className="w-4 h-4 text-stone-300" />
-                            <span>Share</span>
-                          </button>
+                          {/* Responsive interactive dynamic media stage if provided */}
+                          {feed.images && feed.images.length > 0 ? (
+                            (() => {
+                              const activeIdx = feedMediaIndices[feed.id] || 0;
+                              const activeUrl = feed.images[activeIdx];
+                              const activeType = feed.attachmentTypes ? feed.attachmentTypes[activeIdx] : 'image';
+                              const isPlaying = playingFeeds[feed.id] || false;
+
+                              return (
+                                <div className="w-full aspect-video md:max-h-72 bg-stone-950 border border-stone-200/60 rounded-xl overflow-hidden mb-4 relative shadow-sm group select-none" id={`feed-interactive-stage-${feed.id}`}>
+                                  <img 
+                                    src={activeUrl} 
+                                    alt="Feed presentation visual" 
+                                    className={`w-full h-full object-cover transition-all duration-300 ${isPlaying && activeType === 'video' ? 'brightness-50' : ''}`}
+                                    referrerPolicy="no-referrer"
+                                  />
+
+                                  {/* Central Play overlay button for video */}
+                                  {activeType === 'video' && (
+                                    <button 
+                                      type="button"
+                                      onClick={() => {
+                                        setPlayingFeeds(prev => ({ ...prev, [feed.id]: !prev[feed.id] }));
+                                      }}
+                                      className="absolute inset-0 m-auto w-14 h-14 bg-black/60 backdrop-blur-xs hover:bg-black/80 text-white rounded-full flex items-center justify-center transition active:scale-95 shadow-md border border-white/10 cursor-pointer"
+                                      title={isPlaying ? "Pause presentation video" : "Play presentation video"}
+                                    >
+                                      {isPlaying ? (
+                                        <div className="flex gap-1 items-center">
+                                          <span className="w-1.5 h-6 bg-[#FFB300] rounded-full animate-bounce" style={{ animationDelay: '0s' }}></span>
+                                          <span className="w-1.5 h-6 bg-[#FFB300] rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></span>
+                                          <span className="w-1.5 h-6 bg-[#FFB300] rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></span>
+                                        </div>
+                                      ) : (
+                                        <Play className="w-5 h-5 fill-white ml-0.5 text-white animate-pulse" />
+                                      )}
+                                    </button>
+                                  )}
+
+                                  {/* Video status simulation bar */}
+                                  {activeType === 'video' && isPlaying && (
+                                    <div className="absolute bottom-16 left-0 right-0 px-4 py-1.5 bg-black/45 text-[9px] text-[#FFB300] font-mono text-center animate-pulse tracking-wide">
+                                      ▶ Presenting Interactive Video • Click Center Circle to Pause
+                                    </div>
+                                  )}
+
+                                  {/* Carousel dots controller for multi-media index swiping in feed */}
+                                  {feed.images && feed.images.length > 1 && (
+                                    <div className="absolute bottom-4 right-4 bg-black/80 text-white border border-white/10 rounded-full px-3 py-1.5 flex items-center gap-2.5 shadow-md">
+                                      <button 
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setFeedMediaIndices(prev => {
+                                            const currIdx = prev[feed.id] || 0;
+                                            const nextIdx = (currIdx - 1 + feed.images!.length) % feed.images!.length;
+                                            return { ...prev, [feed.id]: nextIdx };
+                                          });
+                                          setPlayingFeeds(prev => ({ ...prev, [feed.id]: false }));
+                                        }}
+                                        className="text-stone-300 hover:text-white transition cursor-pointer p-0.5"
+                                      >
+                                        <ChevronLeft className="w-3.5 h-3.5" />
+                                      </button>
+
+                                      <div className="flex items-center gap-1.5">
+                                        {feed.images.map((_, dotIdx) => (
+                                          <span 
+                                            key={dotIdx} 
+                                            className={`block rounded-full transition-all duration-300
+                                              ${activeIdx === dotIdx ? 'w-2 h-2 bg-[#FFB300]' : 'w-3 h-[2px] bg-white/40'}`}
+                                          />
+                                        ))}
+                                      </div>
+
+                                      <button 
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setFeedMediaIndices(prev => {
+                                            const currIdx = prev[feed.id] || 0;
+                                            const nextIdx = (currIdx + 1) % feed.images!.length;
+                                            return { ...prev, [feed.id]: nextIdx };
+                                          });
+                                          setPlayingFeeds(prev => ({ ...prev, [feed.id]: false }));
+                                        }}
+                                        className="text-stone-300 hover:text-white transition cursor-pointer p-0.5"
+                                      >
+                                        <ChevronRight className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()
+                          ) : (
+                            feed.image && (
+                              <div className="w-full aspect-video md:max-h-80 overflow-hidden rounded-xl border border-stone-100 bg-stone-50 mb-4" id={`feed-illustration-box-${feed.id}`}>
+                                <img 
+                                  src={feed.image} 
+                                  alt="Feed visual preview" 
+                                  className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                            )
+                          )}
+
+                          {/* ACTION & METRICS ROW (ThumbsUp, Repeat, Send, BarChart2, MessageSquare, Bookmark) */}
+                          <div className="flex items-center gap-4 sm:gap-6 border-t border-stone-100 pt-3 text-xs text-stone-500 font-medium" id={`feed-interactive-footer-${feed.id}`}>
+                            {/* Like Reaction */}
+                            <button 
+                              type="button"
+                              onClick={() => toggleLikePost(feed.id)}
+                              className={`flex items-center gap-1.5 transition whitespace-nowrap cursor-pointer group ${isPostLiked ? 'text-amber-600 font-semibold' : 'hover:text-stone-900'}`}
+                              id={`post-like-btn-${feed.id}`}
+                            >
+                              <ThumbsUp className={`w-4 h-4 transition ${isPostLiked ? 'text-[#FFB300] fill-[#FFB300]' : 'text-stone-400 group-hover:text-stone-700'}`} />
+                              <span>{feed.likes}</span>
+                            </button>
+
+                            {/* Repost Reaction */}
+                            <button 
+                              type="button"
+                              onClick={() => toggleRepostPost(feed.id)}
+                              className={`flex items-center gap-1.5 transition whitespace-nowrap cursor-pointer group ${isPostReposted ? 'text-emerald-600 font-semibold' : 'hover:text-stone-900'}`}
+                              id={`post-repost-btn-${feed.id}`}
+                            >
+                              <Repeat className={`w-4 h-4 transition ${isPostReposted ? 'text-emerald-500' : 'text-stone-400 group-hover:text-stone-700'}`} />
+                              <span>{feed.reposts ?? 12}</span>
+                            </button>
+
+                            {/* Share / Send */}
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(window.location.href);
+                                alert("Post connection link copied to clipboard!");
+                              }}
+                              className="flex items-center gap-1.5 hover:text-stone-900 transition whitespace-nowrap cursor-pointer group"
+                              id={`post-share-btn-${feed.id}`}
+                            >
+                              <Send className="w-4 h-4 text-stone-400 group-hover:text-stone-700 -rotate-12" />
+                              <span>{feed.shares ?? 32}</span>
+                            </button>
+
+                            {/* Views BarChart */}
+                            <div className="flex items-center gap-1.5 text-stone-400 whitespace-nowrap select-none" id={`post-views-stat-${feed.id}`}>
+                              <BarChart2 className="w-4 h-4 text-stone-400" />
+                              <span>{feed.views ?? 178}</span>
+                            </div>
+
+                            {/* Toggle Comments Button */}
+                            <button 
+                              type="button"
+                              onClick={() => toggleCommentsView(feed.id)}
+                              className={`flex items-center gap-1.5 transition ml-auto whitespace-nowrap cursor-pointer group ${isCommentsOpen ? 'text-[#FFB300] font-semibold' : 'hover:text-stone-900'}`}
+                              id={`post-comment-toggle-${feed.id}`}
+                            >
+                              <MessageSquare className={`w-4 h-4 transition ${isCommentsOpen ? 'text-[#FFB300] fill-[#FFB300]/20' : 'text-stone-400 group-hover:text-stone-700'}`} />
+                              <span>{commentsCount}</span>
+                            </button>
+
+                            {/* Save/Bookmark */}
+                            <button 
+                              type="button"
+                              onClick={() => toggleSavePost(feed.id)}
+                              className={`flex items-center transition cursor-pointer p-1 rounded-full hover:bg-stone-50 ${isPostSaved ? 'text-amber-500' : 'text-stone-400 hover:text-stone-700'}`}
+                              title={isPostSaved ? "Saved in bookmarks" : "Save post"}
+                              id={`post-bookmark-btn-${feed.id}`}
+                            >
+                              <Bookmark className={`w-4 h-4 ${isPostSaved ? 'fill-amber-500 text-amber-500' : ''}`} />
+                            </button>
+                          </div>
+
+                          {/* EXPANDED COMMENTS ACCORDION (COMMENT POST ON FEED) */}
+                          {isCommentsOpen && (
+                            <div className="mt-4 pt-4 border-t border-stone-100 flex flex-col gap-4" id={`feed-comments-section-${feed.id}`}>
+                              {/* Comments List */}
+                              {feed.commentsList && feed.commentsList.length > 0 ? (
+                                <div className="flex flex-col gap-3.5" id={`comments-list-${feed.id}`}>
+                                  {feed.commentsList.map((comment) => {
+                                    const commentLikeKey = `${feed.id}-${comment.id}`;
+                                    const isCommentLiked = likedComments[commentLikeKey];
+
+                                    return (
+                                      <div 
+                                        key={comment.id}
+                                        className="flex flex-col text-left pb-3 border-b border-stone-100 last:border-b-0"
+                                        id={`comment-item-${comment.id}`}
+                                      >
+                                        {/* Comment Author Row */}
+                                        <div className="flex justify-between items-start mb-1.5">
+                                          <div 
+                                            onClick={() => onViewProfile && onViewProfile(comment.author, comment.authorAvatar)}
+                                            className={`flex items-center gap-2.5 ${onViewProfile ? 'cursor-pointer group' : ''}`}
+                                            title={onViewProfile ? `View ${comment.author}'s profile` : undefined}
+                                          >
+                                            {/* Avatar with online dot */}
+                                            <div className="relative shrink-0">
+                                              <img 
+                                                src={comment.authorAvatar} 
+                                                alt={comment.author} 
+                                                className="w-8 h-8 rounded-full border border-stone-200 object-cover group-hover:ring-2 group-hover:ring-[#FFC107] transition"
+                                                referrerPolicy="no-referrer"
+                                              />
+                                              <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full border-2 border-white"></span>
+                                            </div>
+
+                                            <div className="flex flex-col text-left">
+                                              <span className="font-bold text-xs text-stone-900 group-hover:text-amber-700 group-hover:underline transition">{comment.author}</span>
+                                              {/* 5 Rating Stars */}
+                                              <div className="flex items-center">
+                                                {Array.from({ length: 5 }).map((_, sIdx) => (
+                                                  <Star key={sIdx} className="w-3 h-3 fill-[#FFB300] text-[#FFB300] stroke-[1px]" />
+                                                ))}
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          <button 
+                                            type="button" 
+                                            className="text-stone-300 hover:text-stone-600 p-1 transition cursor-pointer"
+                                            title="Comment options"
+                                          >
+                                            <MoreHorizontal className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+
+                                        {/* Comment Content */}
+                                        <p className="text-[12px] text-stone-600 leading-relaxed font-sans pl-10.5 pr-2 mb-2">
+                                          {comment.content}
+                                        </p>
+
+                                        {/* Comment Action Footers (ThumbsUp, Repeat, Send, BarChart2) */}
+                                        <div className="flex items-center gap-5 pl-10.5 text-[11px] text-stone-400 font-medium">
+                                          <button 
+                                            type="button"
+                                            onClick={() => toggleLikeComment(feed.id, comment.id)}
+                                            className={`flex items-center gap-1 transition cursor-pointer ${isCommentLiked ? 'text-amber-600 font-semibold' : 'hover:text-stone-700'}`}
+                                          >
+                                            <ThumbsUp className={`w-3.5 h-3.5 ${isCommentLiked ? 'text-[#FFB300] fill-[#FFB300]' : 'text-stone-400'}`} />
+                                            <span>{comment.likes}</span>
+                                          </button>
+
+                                          <button 
+                                            type="button"
+                                            onClick={() => {
+                                              alert("Comment cited!");
+                                            }}
+                                            className="flex items-center gap-1 hover:text-stone-700 transition cursor-pointer"
+                                          >
+                                            <Repeat className="w-3.5 h-3.5 text-stone-400" />
+                                            <span>{comment.reposts ?? 12}</span>
+                                          </button>
+
+                                          <button 
+                                            type="button"
+                                            onClick={() => {
+                                              navigator.clipboard.writeText(comment.content);
+                                              alert("Comment text copied to clipboard!");
+                                            }}
+                                            className="flex items-center gap-1 hover:text-stone-700 transition cursor-pointer"
+                                          >
+                                            <Send className="w-3.5 h-3.5 text-stone-400 -rotate-12" />
+                                            <span>{comment.shares ?? 32}</span>
+                                          </button>
+
+                                          <div className="flex items-center gap-1 text-stone-400 select-none">
+                                            <BarChart2 className="w-3.5 h-3.5 text-stone-400" />
+                                            <span>{comment.views ?? 178}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-stone-400 text-center py-2">No comments yet. Be the first to leave a thought!</p>
+                              )}
+
+                              {/* Comment Input Bar */}
+                              <form 
+                                onSubmit={(e) => {
+                                  e.preventDefault();
+                                  handleAddComment(feed.id);
+                                }}
+                                className="relative flex items-center mt-1"
+                                id={`comment-form-${feed.id}`}
+                              >
+                                <input 
+                                  type="text"
+                                  value={commentInputTexts[feed.id] || ''}
+                                  onChange={(e) => setCommentInputTexts({ ...commentInputTexts, [feed.id]: e.target.value })}
+                                  placeholder="Add comment"
+                                  className="w-full bg-[#F7F7F7] border border-stone-200/80 rounded-full pl-4 pr-11 py-2.5 text-xs text-stone-800 placeholder:text-stone-400 focus:outline-none focus:border-[#FFB300] focus:ring-1 focus:ring-[#FFB300] transition"
+                                  id={`input-add-comment-${feed.id}`}
+                                />
+                                <button 
+                                  type="submit"
+                                  disabled={!(commentInputTexts[feed.id] || '').trim()}
+                                  className="absolute right-2 w-7 h-7 rounded-full bg-stone-900 hover:bg-stone-700 disabled:opacity-30 text-white flex items-center justify-center transition cursor-pointer"
+                                  id={`btn-send-comment-${feed.id}`}
+                                  title="Post comment"
+                                >
+                                  <Send className="w-3.5 h-3.5 text-white -rotate-12 ml-0.5" />
+                                </button>
+                              </form>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
@@ -1141,7 +1813,14 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
                               <h4 className="font-bold text-stone-900 text-sm">{offer.title}</h4>
                               <p className="text-xs text-stone-500 mt-1 leading-relaxed">{offer.description}</p>
                             </div>
-                            <img src={offer.creatorAvatar} alt={offer.creator} className="w-9 h-9 rounded-full object-cover shrink-0 border border-stone-100" referrerPolicy="no-referrer" />
+                            <img 
+                              onClick={() => onViewProfile && onViewProfile(offer.creator, offer.creatorAvatar)} 
+                              src={offer.creatorAvatar} 
+                              alt={offer.creator} 
+                              className={`w-9 h-9 rounded-full object-cover shrink-0 border border-stone-100 ${onViewProfile ? 'cursor-pointer hover:ring-2 hover:ring-[#FFB300] transition' : ''}`} 
+                              referrerPolicy="no-referrer" 
+                              title={onViewProfile ? `View ${offer.creator}'s profile` : undefined}
+                            />
                           </div>
 
                           {/* Objectives lists */}
@@ -1193,7 +1872,12 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
 
                           {/* Collab CTA */}
                           <div className="flex justify-between items-center mt-3.5 pt-3.5 border-t border-stone-50" id="collab-actions-block">
-                            <span className="text-[11px] text-stone-400 font-sans">Offered by <strong className="text-stone-700">{offer.creator}</strong></span>
+                            <span className="text-[11px] text-stone-400 font-sans">
+                              Offered by <strong 
+                                onClick={() => onViewProfile && onViewProfile(offer.creator, offer.creatorAvatar)} 
+                                className={`text-stone-700 ${onViewProfile ? 'cursor-pointer hover:text-amber-700 hover:underline' : ''}`}
+                              >{offer.creator}</strong>
+                            </span>
                             <button 
                               onClick={() => {
                                 alert(`Request submitted contextually to ${offer.creator}. Check messages soon!`);
@@ -1293,15 +1977,19 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
                         id={`sidebar-member-row-${member.name}`}
                       >
                         {/* Member avatar profile details */}
-                        <div className="flex items-center gap-2.5">
+                        <div 
+                          onClick={() => onViewProfile && onViewProfile(member.name, member.avatar)}
+                          className={`flex items-center gap-2.5 ${onViewProfile ? 'cursor-pointer group' : ''}`}
+                          title={onViewProfile ? `View ${member.name}'s profile` : undefined}
+                        >
                           <img 
                             src={member.avatar} 
                             alt={member.name} 
-                            className="w-9 h-9 rounded-full object-cover border border-stone-100"
+                            className="w-9 h-9 rounded-full object-cover border border-stone-100 group-hover:ring-2 group-hover:ring-[#FFC107] transition"
                             referrerPolicy="no-referrer"
                           />
                           <div className="flex flex-col text-left gap-0.5">
-                            <span className="font-bold text-[13px] text-stone-900 leading-none">{member.name}</span>
+                            <span className="font-bold text-[13px] text-stone-900 leading-none group-hover:text-amber-700 group-hover:underline transition">{member.name}</span>
                             
                             {/* Star indicators */}
                             <div className="flex items-center">
@@ -1403,61 +2091,132 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
           <section className="bg-white border border-[#EBEBEB] rounded-3xl p-6 md:p-8 flex flex-col gap-6 text-left" id="com-resource-sharing-panel">
             
             {/* Tab switch header pills */}
-            <div className="flex border-b border-[#EBEBEB] gap-6" id="resource-sharing-tabs">
-              <button 
-                onClick={() => setActiveResourceTab('media')}
-                className={`pb-3 font-sans font-bold text-xs transition border-b-2 whitespace-nowrap cursor-pointer
-                  ${activeResourceTab === 'media' 
-                    ? 'border-[#FF5722] text-[#FF5722]' 
-                    : 'border-transparent text-stone-400 hover:text-stone-700'}`}
-                id="btn-resource-media"
-              >
-                Shared Media 250+
-              </button>
+            {/* Tab switch header pills and upload actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#EBEBEB] gap-4 pb-3" id="resource-sharing-tabs">
+              <div className="flex gap-6">
+                <button 
+                  onClick={() => setActiveResourceTab('media')}
+                  className={`pb-2 font-sans font-bold text-xs transition border-b-2 whitespace-nowrap cursor-pointer
+                    ${activeResourceTab === 'media' 
+                      ? 'border-[#FF5722] text-[#FF5722]' 
+                      : 'border-transparent text-stone-400 hover:text-stone-700'}`}
+                  id="btn-resource-media"
+                >
+                  Shared Media {sharedMediaList.length}+
+                </button>
 
-              <button 
-                onClick={() => setActiveResourceTab('files')}
-                className={`pb-3 font-sans font-bold text-xs transition border-b-2 whitespace-nowrap cursor-pointer
-                  ${activeResourceTab === 'files' 
-                    ? 'border-[#FF5722] text-[#FF5722]' 
-                    : 'border-transparent text-stone-400 hover:text-stone-700'}`}
-                id="btn-resource-files"
-              >
-                Shared Files 68+
-              </button>
+                <button 
+                  onClick={() => setActiveResourceTab('files')}
+                  className={`pb-2 font-sans font-bold text-xs transition border-b-2 whitespace-nowrap cursor-pointer
+                    ${activeResourceTab === 'files' 
+                      ? 'border-[#FF5722] text-[#FF5722]' 
+                      : 'border-transparent text-stone-400 hover:text-stone-700'}`}
+                  id="btn-resource-files"
+                >
+                  Shared Files {sharedFilesList.length}+
+                </button>
 
-              <button 
-                onClick={() => setActiveResourceTab('links')}
-                className={`pb-3 font-sans font-bold text-xs transition border-b-2 whitespace-nowrap cursor-pointer
-                  ${activeResourceTab === 'links' 
-                    ? 'border-[#FF5722] text-[#FF5722]' 
-                    : 'border-transparent text-stone-400 hover:text-stone-700'}`}
-                id="btn-resource-links"
-              >
-                Shared Links 58+
-              </button>
+                <button 
+                  onClick={() => setActiveResourceTab('links')}
+                  className={`pb-2 font-sans font-bold text-xs transition border-b-2 whitespace-nowrap cursor-pointer
+                    ${activeResourceTab === 'links' 
+                      ? 'border-[#FF5722] text-[#FF5722]' 
+                      : 'border-transparent text-stone-400 hover:text-stone-700'}`}
+                  id="btn-resource-links"
+                >
+                  Shared Links 58+
+                </button>
+              </div>
+
+              {/* Upload action buttons */}
+              <div className="flex items-center gap-2">
+                {activeResourceTab === 'media' && (
+                  <>
+                    <input 
+                      type="file" 
+                      ref={sharedMediaInputRef} 
+                      accept="image/*,video/*" 
+                      multiple 
+                      className="hidden" 
+                      onChange={handleSharedMediaUpload} 
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => sharedMediaInputRef.current?.click()}
+                      className="px-3.5 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-[#FFB300]" />
+                      <span>Upload Media</span>
+                    </button>
+                  </>
+                )}
+
+                {activeResourceTab === 'files' && (
+                  <>
+                    <input 
+                      type="file" 
+                      ref={sharedFileInputRef} 
+                      accept=".pdf,.doc,.docx,.zip,.fig,.txt,application/*" 
+                      multiple 
+                      className="hidden" 
+                      onChange={handleSharedFileUpload} 
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => sharedFileInputRef.current?.click()}
+                      className="px-3.5 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                    >
+                      <FileUp className="w-3.5 h-3.5 text-[#FFB300]" />
+                      <span>Upload Document</span>
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* SHARED MEDIA GRID */}
             {activeResourceTab === 'media' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4" id="resource-media-view-grid">
-                {[
-                  'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=300',
-                  'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?q=80&w=300',
-                  'https://images.unsplash.com/photo-1633356122544-f134324a6cee?q=80&w=300',
-                  'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=300',
-                  'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=300',
-                  'https://images.unsplash.com/photo-1618005198143-e5283b519a7f?q=80&w=300'
-                ].map((mSrc, idx) => (
-                  <div key={idx} className="aspect-square rounded-2xl overflow-hidden border border-stone-200/60 bg-stone-50 shadow-2xs group relative cursor-pointer" id={`media-thumb-${idx}`}>
-                    <img 
-                      src={mSrc} 
-                      alt="Shared digital illustration model asset" 
-                      className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 transition duration-200 flex items-center justify-center">
-                      <span className="text-[10px] text-white font-bold uppercase tracking-wider bg-black/60 px-2 py-1 rounded-md">View asset</span>
+              <div 
+                className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 p-2 rounded-2xl transition-colors ${
+                  isDraggingOverMedia ? 'bg-amber-50/50 border-2 border-dashed border-[#FFB300]' : ''
+                }`}
+                id="resource-media-view-grid"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDraggingOverMedia(true);
+                }}
+                onDragLeave={() => setIsDraggingOverMedia(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDraggingOverMedia(false);
+                  if (e.dataTransfer.files) {
+                    handleSharedMediaUpload({ target: { files: e.dataTransfer.files, value: '' } } as any);
+                  }
+                }}
+              >
+                {sharedMediaList.map((mItem, idx) => (
+                  <div key={mItem.id || idx} className="aspect-square rounded-2xl overflow-hidden border border-stone-200/60 bg-stone-50 shadow-2xs group relative cursor-pointer" id={`media-thumb-${idx}`}>
+                    {mItem.type === 'video' ? (
+                      <video src={mItem.url} className="w-full h-full object-cover" />
+                    ) : (
+                      <img 
+                        src={mItem.url} 
+                        alt={mItem.name} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-stone-900/60 opacity-0 group-hover:opacity-100 transition duration-200 flex flex-col justify-between p-2">
+                      <span className="text-[10px] text-white font-mono truncate">{mItem.size}</span>
+                      <a 
+                        href={mItem.url} 
+                        download={mItem.name} 
+                        className="text-[10px] text-white font-bold bg-[#FFB300] hover:bg-amber-600 text-stone-950 px-2 py-1 rounded-md text-center flex items-center justify-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Download className="w-3 h-3" />
+                        <span>Save</span>
+                      </a>
                     </div>
                   </div>
                 ))}
@@ -1466,27 +2225,40 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
 
             {/* SHARED FILES LIST TABLE */}
             {activeResourceTab === 'files' && (
-              <div className="border border-stone-200/80 rounded-2xl overflow-hidden" id="resource-files-view-table">
+              <div 
+                className={`border border-stone-200/80 rounded-2xl overflow-hidden transition-colors ${
+                  isDraggingOverFiles ? 'bg-amber-50/50 border-dashed border-[#FFB300]' : ''
+                }`} 
+                id="resource-files-view-table"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDraggingOverFiles(true);
+                }}
+                onDragLeave={() => setIsDraggingOverFiles(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDraggingOverFiles(false);
+                  if (e.dataTransfer.files) {
+                    handleSharedFileUpload({ target: { files: e.dataTransfer.files, value: '' } } as any);
+                  }
+                }}
+              >
                 <table className="w-full text-xs font-sans text-stone-600">
                   <thead className="bg-[#FAFAFA] border-b border-borderColor text-left text-stone-500 font-bold">
                     <tr>
                       <th className="p-4 pl-5">Document Name</th>
                       <th className="p-4">File Size</th>
                       <th className="p-4">Categorized / Role tag</th>
-                      <th className="p-4 pr-5 text-right">Owner</th>
+                      <th className="p-4">Owner</th>
+                      <th className="p-4 pr-5 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {[
-                      { name: 'UXUX Document.pdf', size: '15.65kb', tag: 'interactive design', owner: 'Afolabi Ola' },
-                      { name: 'Dashboard Design System v2.fig', size: '142.10kb', tag: 'UI Library tokens', owner: 'Afolabi Emmanuel' },
-                      { name: 'Wireframing Guidelines Book.pdf', size: '48.95kb', tag: 'UX Research', owner: 'Afolabi Victor' },
-                      { name: 'Brand Typography Layout Assets.zip', size: '280.40kb', tag: 'Brand asset pack', owner: 'Afolabi Funke' }
-                    ].map((fItem, fIdx) => (
-                      <tr key={fIdx} className="border-b border-stone-100 hover:bg-stone-50 transition">
+                    {sharedFilesList.map((fItem, fIdx) => (
+                      <tr key={fItem.id || fIdx} className="border-b border-stone-100 hover:bg-stone-50 transition">
                         <td className="p-4 pl-5 flex items-center gap-2 font-bold text-stone-900">
                           <FileText className="w-4 h-4 text-rose-500 shrink-0" />
-                          <span>{fItem.name}</span>
+                          <span className="truncate max-w-xs">{fItem.name}</span>
                         </td>
                         <td className="p-4 font-mono">{fItem.size}</td>
                         <td className="p-4">
@@ -1494,7 +2266,21 @@ export default function CommunitySection({ communityName, onBackToDashboard }: C
                             {fItem.tag}
                           </span>
                         </td>
-                        <td className="p-4 pr-5 text-right font-medium text-stone-700">{fItem.owner}</td>
+                        <td className="p-4 font-medium text-stone-700">{fItem.owner}</td>
+                        <td className="p-4 pr-5 text-right">
+                          {fItem.url ? (
+                            <a 
+                              href={fItem.url} 
+                              download={fItem.name} 
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg transition"
+                            >
+                              <Download className="w-3 h-3" />
+                              <span>Download</span>
+                            </a>
+                          ) : (
+                            <span className="text-[11px] text-stone-400">Archived</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

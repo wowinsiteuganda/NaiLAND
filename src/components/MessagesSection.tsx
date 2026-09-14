@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChatThread, ChatMessage } from '../types';
-import { Send, Paperclip, Mic, Search, Check, ThumbsUp, FileText, CheckSquare, Square, Clock, Sparkles } from 'lucide-react';
+import { ChatThread, ChatMessage, MessageAttachment } from '../types';
+import { Send, Paperclip, Mic, Search, Check, ThumbsUp, FileText, CheckSquare, Square, Clock, Sparkles, Download, Image as ImageIcon, X, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { readFileAsDataUrl, formatFileSize, getFileType } from '../lib/fileUpload';
 
 interface MessagesSectionProps {
   threads: ChatThread[];
@@ -44,6 +45,33 @@ export default function MessagesSection({
   }, [initialChatWith, clearDirectChatTrigger]);
 
   const [messageText, setMessageText] = useState('');
+  const [pendingAttachments, setPendingAttachments] = useState<MessageAttachment[]>([]);
+  const [isDraggingOverChat, setIsDraggingOverChat] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleProcessFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        const cat = getFileType(file);
+        const newAtt: MessageAttachment = {
+          name: file.name,
+          size: formatFileSize(file.size),
+          type: cat,
+          url: dataUrl
+        };
+        setPendingAttachments(prev => [...prev, newAtt]);
+      } catch (err) {
+        console.error("Failed to read file:", err);
+      }
+    }
+  };
+
+  const removeAttachment = (indexToRemove: number) => {
+    setPendingAttachments(prev => prev.filter((_, idx) => idx !== indexToRemove));
+  };
 
   // Countdowns ticking calculations: Days:Hours:Mins:Seconds
   const [timeLeft, setTimeLeft] = useState({
@@ -103,24 +131,28 @@ export default function MessagesSection({
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!messageText.trim()) return;
+    const trimmed = messageText.trim();
+    if (!trimmed && pendingAttachments.length === 0) return;
 
     const currentThreadId = activeThreadId;
+    const sentAttachments = [...pendingAttachments];
+    const previewSummary = trimmed || (sentAttachments.length === 1 ? `📎 ${sentAttachments[0].name}` : `📎 ${sentAttachments.length} attachments`);
 
     const newMsg: ChatMessage = {
       id: `m-${Date.now()}`,
       sender: 'Me',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=120',
-      content: messageText,
+      content: trimmed,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isMe: true
+      isMe: true,
+      attachments: sentAttachments.length > 0 ? sentAttachments : undefined
     };
 
     setThreads(prev => prev.map(t => {
       if (t.id === currentThreadId) {
         return {
           ...t,
-          lastMessage: messageText,
+          lastMessage: previewSummary,
           timeString: 'Just now',
           messages: [...t.messages, newMsg]
         };
@@ -129,6 +161,7 @@ export default function MessagesSection({
     }));
 
     setMessageText('');
+    setPendingAttachments([]);
 
     // Trigger typing simulator after 400ms
     setTimeout(() => {
@@ -269,7 +302,24 @@ export default function MessagesSection({
         </div>
 
         {/* Conversation Bubbles Scroller */}
-        <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4 bg-stone-50/20" id="conversation-bubbles-window">
+        <div 
+          className={`flex-1 overflow-y-auto p-5 flex flex-col gap-4 bg-stone-50/20 transition-colors ${
+            isDraggingOverChat ? 'bg-amber-50/50 border-2 border-dashed border-[#FFB300]' : ''
+          }`} 
+          id="conversation-bubbles-window"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDraggingOverChat(true);
+          }}
+          onDragLeave={() => setIsDraggingOverChat(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDraggingOverChat(false);
+            if (e.dataTransfer.files) {
+              handleProcessFiles(e.dataTransfer.files);
+            }
+          }}
+        >
           {activeThread.messages.map((ms) => (
             <motion.div
               layout
@@ -277,7 +327,7 @@ export default function MessagesSection({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.22, ease: 'easeOut' }}
               key={ms.id}
-              className={`flex gap-2.5 max-w-[75%] ${ms.isMe ? 'self-end flex-row-reverse text-right' : 'self-start text-left'}`}
+              className={`flex gap-2.5 max-w-[80%] ${ms.isMe ? 'self-end flex-row-reverse text-right' : 'self-start text-left'}`}
               id={`bubble-${ms.id}`}
             >
               {/* Message avatar */}
@@ -287,12 +337,62 @@ export default function MessagesSection({
                 <span className="text-[8px] font-mono text-stone-400 pl-1">{ms.sender}</span>
                 
                 <div 
-                  className={`p-3 rounded-2xl text-[11px] leading-relaxed shadow-sm
+                  className={`p-3 rounded-2xl text-[11px] leading-relaxed shadow-sm flex flex-col gap-2
                     ${ms.isMe 
                       ? 'bg-amber-100 border border-amber-200 text-stone-900 rounded-tr-none' 
                       : 'bg-white border border-stone-200/60 text-stone-700 rounded-tl-none'}`}
                 >
-                  {ms.content}
+                  {ms.content && <div>{ms.content}</div>}
+                  
+                  {/* Real file attachments */}
+                  {ms.attachments && ms.attachments.length > 0 && (
+                    <div className="flex flex-col gap-2 mt-1">
+                      {ms.attachments.map((att, attIdx) => (
+                        <div key={attIdx} className="overflow-hidden rounded-xl border border-stone-200/80 bg-stone-50/90 p-1.5 flex flex-col gap-1.5">
+                          {att.type === 'image' ? (
+                            <div className="relative group overflow-hidden rounded-lg">
+                              <img 
+                                src={att.url} 
+                                alt={att.name} 
+                                className="max-w-xs max-h-60 w-full object-cover rounded-lg"
+                                referrerPolicy="no-referrer"
+                              />
+                              <div className="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                                <a 
+                                  href={att.url} 
+                                  download={att.name} 
+                                  className="bg-white/90 text-stone-900 text-[10px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1 shadow"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  <span>Download ({att.size})</span>
+                                </a>
+                              </div>
+                            </div>
+                          ) : att.type === 'video' ? (
+                            <video src={att.url} controls className="max-w-xs rounded-lg max-h-56 w-full" />
+                          ) : (
+                            <div className="flex items-center justify-between gap-3 p-1.5 bg-white rounded-lg border border-stone-150">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <FileText className="w-4 h-4 text-amber-600 shrink-0" />
+                                <div className="flex flex-col min-w-0 text-left">
+                                  <span className="text-[11px] font-bold text-stone-800 truncate max-w-[150px]">{att.name}</span>
+                                  <span className="text-[9px] text-stone-400 font-mono">{att.size}</span>
+                                </div>
+                              </div>
+                              <a 
+                                href={att.url} 
+                                download={att.name} 
+                                className="p-1.5 bg-stone-100 hover:bg-stone-200 rounded-lg text-stone-600 transition shrink-0"
+                                title="Download file"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 
                 <span className="text-[8px] font-mono text-stone-300 pr-1 mt-0.5">{ms.time}</span>
@@ -326,10 +426,56 @@ export default function MessagesSection({
         </div>
 
         {/* Bottom Messages inputs form */}
-        <form onSubmit={handleSendMessage} className="p-4 border-t border-stone-100 bg-white/70 backdrop-blur shrink-0" id="messages-form">
+        <form onSubmit={handleSendMessage} className="p-3 md:p-4 border-t border-stone-100 bg-white/70 backdrop-blur shrink-0 flex flex-col gap-2" id="messages-form">
+          {/* Pending attachments preview drawer */}
+          {pendingAttachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-1">
+              {pendingAttachments.map((att, attIdx) => (
+                <div 
+                  key={attIdx} 
+                  className="flex items-center gap-2 bg-amber-50/80 border border-amber-200/80 rounded-xl px-2.5 py-1 text-xs text-stone-800 shadow-2xs"
+                >
+                  {att.type === 'image' ? (
+                    <img src={att.url} alt={att.name} className="w-5 h-5 object-cover rounded" />
+                  ) : (
+                    <FileText className="w-4 h-4 text-amber-600" />
+                  )}
+                  <span className="truncate max-w-[140px] font-medium text-[11px]">{att.name}</span>
+                  <span className="text-[9px] font-mono text-stone-400">{att.size}</span>
+                  <button 
+                    type="button" 
+                    onClick={() => removeAttachment(attIdx)}
+                    className="text-stone-400 hover:text-stone-700 p-0.5 ml-1 rounded-full cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-center bg-stone-50 border border-stone-200/80 rounded-full px-4.5 py-2.5 shadow-inner focus-within:border-amber-400 transition" id="messages-input-row">
             
-            <button type="button" className="p-1 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-700 cursor-pointer whitespace-nowrap" id="btn-msg-clip">
+            {/* Hidden file input */}
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={(e) => {
+                handleProcessFiles(e.target.files);
+                e.target.value = '';
+              }} 
+              multiple 
+              className="hidden" 
+              id="chat-file-upload-input"
+            />
+
+            <button 
+              type="button" 
+              onClick={() => fileInputRef.current?.click()}
+              className="p-1 hover:bg-stone-100 rounded-full text-stone-400 hover:text-stone-700 cursor-pointer whitespace-nowrap" 
+              id="btn-msg-clip"
+              title="Attach real image or document"
+            >
               <Paperclip className="w-4 h-4" />
             </button>
             
@@ -349,7 +495,8 @@ export default function MessagesSection({
               
               <button 
                 type="submit" 
-                className="p-2 bg-[#f8c21a] hover:bg-stone-950 hover:text-white rounded-full text-stone-900 transition cursor-pointer shadow-sm whitespace-nowrap"
+                disabled={!messageText.trim() && pendingAttachments.length === 0}
+                className="p-2 bg-[#f8c21a] hover:bg-stone-950 hover:text-white disabled:opacity-40 rounded-full text-stone-900 transition cursor-pointer shadow-sm whitespace-nowrap"
                 id="btn-msg-send"
               >
                 <Send className="w-3.5 h-3.5" />

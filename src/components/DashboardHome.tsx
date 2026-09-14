@@ -7,9 +7,10 @@ interface DashboardHomeProps {
   user: UserProfile;
   onSelectCommunity: (comName: string) => void;
   onSelectDirectChat: (personName: string, avatar: string) => void;
+  onViewProfile: (personName: string, avatar?: string) => void;
 }
 
-export default function DashboardHome({ user, onSelectCommunity, onSelectDirectChat }: DashboardHomeProps) {
+export default function DashboardHome({ user, onSelectCommunity, onSelectDirectChat, onViewProfile }: DashboardHomeProps) {
   const [activeRegion, setActiveRegion] = useState('Creative');
 
   // Suggested region pills structure
@@ -23,41 +24,53 @@ export default function DashboardHome({ user, onSelectCommunity, onSelectDirectC
     { name: 'Sciences', icon: '⚛️', iconBg: 'bg-[#E0F7FA] text-[#00ACC1]', ringColor: 'border-cyan-200' }
   ];
 
-  // Trending collabs data
+  // Trending collabs data with rich peer community members
   const trendingCollabs = [
     {
       id: 'tc-1',
-      name: 'Afolabi Ola',
-      avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=120',
-      rating: 4.5,
-      desc: 'I create interactive design interfaces that engage users...',
+      name: 'Afolabi Emmanuel',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=120',
+      rating: 4.9,
+      desc: 'Pioneering decentralized visual identities and interactive design systems across Africa...',
       engagement: '225k engagement'
     },
     {
       id: 'tc-2',
-      name: 'Afolabi Ola',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=120',
-      rating: 4.5,
-      desc: 'I create interactive design interfaces that engage users...',
-      engagement: '225k engagement'
+      name: 'Lola Adebinpe',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=120',
+      rating: 5.0,
+      desc: 'Orchestrating design token systems between Figma and Tailwind CSS with zero handoff friction...',
+      engagement: '340k engagement'
     },
     {
       id: 'tc-3',
-      name: 'Afolabi Ola',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=120',
-      rating: 4.5,
-      desc: 'I create interactive design interfaces that engage users...',
-      engagement: '225k engagement'
+      name: 'Afolabi Toyosi',
+      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=120',
+      rating: 4.8,
+      desc: 'Crafting pixel-perfect, accessible Web3 components with motion/react & TypeScript...',
+      engagement: '180k engagement'
     }
   ];
 
-  // Skills needed grid matching 9 cards of Afolabi Ola exactly as the screenshot
-  const skillsNeededGrid = Array.from({ length: 9 }).map((_, index) => ({
+  // Skills needed grid with diverse active peers
+  const creatorProfiles = [
+    { name: 'Afolabi Emmanuel', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=120', skill: 'I need a front-end engineer who can implement micro-animations for our token swap modal', rating: 5 },
+    { name: 'Lola Adebinpe', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=120', skill: 'Looking for a technical copywriter to refine decentralized governance proposals', rating: 5 },
+    { name: 'Afolabi Toyosi', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=120', skill: 'Seeking a 3D Blender artist to generate spatial interactive NFT badges', rating: 4 },
+    { name: 'Afolabi Victor', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=120', skill: 'Need a WebGL Three.js developer to optimize canvas render passes', rating: 5 },
+    { name: 'Afolabi Blessing', avatar: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?q=80&w=120', skill: 'Looking for an accessibility specialist to test high-contrast dark themes', rating: 4 },
+    { name: 'Afolabi Funke', avatar: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=120', skill: 'I need a peer to help create comprehensive Figma token variants and variables', rating: 5 },
+    { name: 'Afolabi Tunde', avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=120', skill: 'Need a vector SVG optimizer for responsive hero illustration assets', rating: 4 },
+    { name: 'Afolabi Ola', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=120', skill: 'I need a person who can help me to create an engaging design interface', rating: 4 },
+    { name: 'Afolabi Emmanuel', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=120', skill: 'Seeking React Native partner for cross-platform peer messenger integration', rating: 5 }
+  ];
+
+  const skillsNeededGrid = creatorProfiles.map((cp, index) => ({
     id: `sn-card-${index}`,
-    name: 'Afolabi Ola',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=120',
-    text: 'I need a person who can help me to create an engaging design interface',
-    rating: 4,
+    name: cp.name,
+    avatar: cp.avatar,
+    text: cp.skill,
+    rating: cp.rating,
     compensation: 'Payment 100naitoken/$100'
   }));
 
@@ -125,19 +138,24 @@ export default function DashboardHome({ user, onSelectCommunity, onSelectDirectC
               >
                 {/* Header Information */}
                 <div className="flex justify-between items-start mb-3" id={`tc-hdr-${collab.id}`}>
-                  <div className="flex items-center gap-3" id={`tc-meta-${collab.id}`}>
+                  <div 
+                    onClick={() => onViewProfile(collab.name, collab.avatar)}
+                    className="flex items-center gap-3 cursor-pointer group" 
+                    id={`tc-meta-${collab.id}`}
+                    title={`View ${collab.name}'s profile`}
+                  >
                     <div className="relative w-11 h-11 shrink-0">
                       <img 
                         src={collab.avatar} 
                         alt={collab.name} 
-                        className="w-11 h-11 rounded-full object-cover border border-stone-200"
+                        className="w-11 h-11 rounded-full object-cover border border-stone-200 group-hover:ring-2 group-hover:ring-[#FFC107] transition"
                         referrerPolicy="no-referrer"
                       />
                       <span className="absolute bottom-0 right-0 w-3 h-3 bg-[#4CAF50] rounded-full border-2 border-white"></span>
                     </div>
 
                     <div className="flex flex-col text-left gap-0.5" id={`tc-name-col-${collab.id}`}>
-                      <span className="font-sans font-bold text-sm text-stone-900 leading-tight">{collab.name}</span>
+                      <span className="font-sans font-bold text-sm text-stone-900 leading-tight group-hover:text-amber-700 group-hover:underline transition">{collab.name}</span>
                       {/* Rating Yellow Star row matching screenshot */}
                       <div className="flex items-center gap-0.5">
                         {Array.from({ length: 5 }).map((_, sIdx) => (
@@ -282,20 +300,25 @@ export default function DashboardHome({ user, onSelectCommunity, onSelectDirectC
               {/* Top row */}
               <div id={`sn-top-${card.id}`}>
                 <div className="flex justify-between items-start mb-3" id={`sn-meta-row-${card.id}`}>
-                  {/* Circle avatar and rating lines */}
-                  <div className="flex items-center gap-3" id={`sn-profile-${card.id}`}>
+                  {/* Circle avatar and rating lines - clickable to view profile */}
+                  <div 
+                    onClick={() => onViewProfile(card.name, card.avatar)}
+                    className="flex items-center gap-3 cursor-pointer group" 
+                    id={`sn-profile-${card.id}`}
+                    title={`View ${card.name}'s profile`}
+                  >
                     <div className="relative w-10 h-10 shrink-0">
                       <img 
                         src={card.avatar} 
                         alt={card.name} 
-                        className="w-10 h-10 rounded-full object-cover border border-stone-200"
+                        className="w-10 h-10 rounded-full object-cover border border-stone-200 group-hover:ring-2 group-hover:ring-[#FFC107] transition"
                         referrerPolicy="no-referrer"
                       />
                       <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#4CAF50] rounded-full border-2 border-white"></span>
                     </div>
 
                     <div className="flex flex-col text-left gap-0.5" id={`sn-name-column-${card.id}`}>
-                      <span className="font-sans font-bold text-sm text-stone-900 leading-tight">{card.name}</span>
+                      <span className="font-sans font-bold text-sm text-stone-900 leading-tight group-hover:text-amber-700 group-hover:underline transition">{card.name}</span>
                       {/* Rating row of 5 stars */}
                       <div className="flex items-center gap-0.5">
                         {Array.from({ length: 5 }).map((_, sIdx) => (

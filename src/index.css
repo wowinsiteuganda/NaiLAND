@@ -14,3 +14,18 @@
   --color-nail-wine: #3c090c;
   --color-nail-bg: #fdfcf9;
 }
+
+@keyframes subtle-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(248, 194, 26, 0.3), 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    border-color: rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 12px 3px rgba(248, 194, 26, 0.45), 0 2px 4px 0 rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.85);
+  }
+}
+
+.animate-subtle-glow {
+  animation: subtle-glow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}

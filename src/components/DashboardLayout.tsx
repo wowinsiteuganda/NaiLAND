@@ -1,17 +1,18 @@
 import React from 'react';
 import NaiLandLogo from './NaiLandLogo';
 import { DashboardTab, UserProfile } from '../types';
-import { LayoutDashboard, MessageSquareCode, Users, HelpCircle, LogOut, Menu, X, Bell, Globe, Settings, SlidersHorizontal } from 'lucide-react';
+import { LayoutDashboard, MessageSquareCode, Users, HelpCircle, LogOut, Menu, X, Bell, Globe, Settings, SlidersHorizontal, User, Coins } from 'lucide-react';
 
 interface DashboardLayoutProps {
   user: UserProfile;
   activeTab: DashboardTab;
   setActiveTab: (tab: DashboardTab) => void;
   onLogout: () => void;
+  onOpenOwnProfile?: (openSettings?: boolean) => void;
   children: React.ReactNode;
 }
 
-export default function DashboardLayout({ user, activeTab, setActiveTab, onLogout, children }: DashboardLayoutProps) {
+export default function DashboardLayout({ user, activeTab, setActiveTab, onLogout, onOpenOwnProfile, children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   // Menu lists
@@ -19,6 +20,7 @@ export default function DashboardLayout({ user, activeTab, setActiveTab, onLogou
     { id: 'dashboard' as DashboardTab, text: 'Dash Board', icon: LayoutDashboard },
     { id: 'messages' as DashboardTab, text: 'Messages', icon: MessageSquareCode },
     { id: 'community' as DashboardTab, text: 'Community', icon: Users },
+    { id: 'profile' as DashboardTab, text: 'My Profile', icon: User, action: () => onOpenOwnProfile ? onOpenOwnProfile(false) : setActiveTab('profile') },
   ];
 
   const subItems = [
@@ -26,8 +28,27 @@ export default function DashboardLayout({ user, activeTab, setActiveTab, onLogou
     { id: 'logout' as DashboardTab, text: 'Log Out', icon: LogOut, action: onLogout },
   ];
 
-  // Afolabi Ola profile avatar matching the image
-  const profileAvatarUrl = 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=120';
+  // Afolabi Ola profile avatar matching the image or dynamic user avatar
+  const profileAvatarUrl = user.avatar || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=120';
+  const fullName = `${user.firstName || 'Afolabi'} ${user.secondName || 'Ola'}`.trim();
+  const naiPoints = user.naiPoints ?? 2450;
+
+  const handleAvatarClick = () => {
+    if (onOpenOwnProfile) {
+      onOpenOwnProfile(false);
+    } else {
+      setActiveTab('profile');
+    }
+  };
+
+  const handleSettingsClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onOpenOwnProfile) {
+      onOpenOwnProfile(true);
+    } else {
+      setActiveTab('profile');
+    }
+  };
 
   return (
     <div className="bg-[#FFFFFF] min-h-screen text-stone-800 flex flex-col md:flex-row font-sans" id="app-layout-root">
@@ -35,7 +56,28 @@ export default function DashboardLayout({ user, activeTab, setActiveTab, onLogou
       {/* MOBILE BAR */}
       <div className="md:hidden bg-white border-b border-stone-100 px-4 py-3 flex justify-between items-center z-50 sticky top-0" id="mobile-topbar">
         <NaiLandLogo size="sm" />
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {/* Mobile NaiPoints badge with subtle glow */}
+          <button 
+            onClick={handleAvatarClick}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-[#FFFDF2] via-[#FFF9E6] to-[#FFF3CD] border border-[#FFD54F] rounded-full text-stone-900 cursor-pointer animate-subtle-glow select-none active:scale-95 transition-transform"
+            id="mobile-naipoints-badge"
+            title={`Your Balance: ${naiPoints.toLocaleString()} NaiPoints • Click to view profile`}
+          >
+            <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#FFC107] to-[#FFA000] flex items-center justify-center text-stone-950 shrink-0 shadow-2xs">
+              <Coins className="w-2.5 h-2.5 text-stone-950" style={{ strokeWidth: 2.4 }} />
+            </div>
+            <span className="font-mono text-xs font-black leading-none text-stone-950">{naiPoints.toLocaleString()}</span>
+            <span className="text-[9px] font-bold text-amber-900 uppercase leading-none">NP</span>
+          </button>
+
+          <button 
+            onClick={handleAvatarClick} 
+            className="w-8 h-8 rounded-full overflow-hidden border border-stone-200 cursor-pointer"
+            title="My Profile"
+          >
+            <img src={profileAvatarUrl} alt={fullName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          </button>
           <button className="relative p-1.5 text-stone-400 hover:text-stone-800 whitespace-nowrap" id="btn-mobile-bells">
             <Bell className="w-5 h-5" />
             <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full"></span>
@@ -71,7 +113,11 @@ export default function DashboardLayout({ user, activeTab, setActiveTab, onLogou
                 <button
                   key={item.id}
                   onClick={() => {
-                    setActiveTab(item.id);
+                    if (item.action) {
+                      item.action();
+                    } else {
+                      setActiveTab(item.id);
+                    }
                     setSidebarOpen(false);
                   }}
                   className={`w-full flex items-center gap-4 px-6 py-4 text-[14px] font-semibold select-none cursor-pointer transition-all whitespace-nowrap text-left
@@ -135,26 +181,58 @@ export default function DashboardLayout({ user, activeTab, setActiveTab, onLogou
             </button>
           </div>
 
-          {/* User profile, notifications indicators and settings on right line */}
-          <div className="flex items-center gap-5" id="header-right-side">
+          {/* User profile, notifications indicators, NaiPoints badge and settings on right line */}
+          <div className="flex items-center gap-4" id="header-right-side">
+            {/* Visually Prominent NaiPoints Badge with subtle glow animation */}
+            <button
+              onClick={handleAvatarClick}
+              className="relative inline-flex items-center gap-2.5 px-3.5 py-1.5 bg-gradient-to-r from-[#FFFDF2] via-[#FFF9E6] to-[#FFF3CD] border border-[#FFD54F] rounded-full text-stone-900 cursor-pointer hover:border-[#FFC107] hover:scale-[1.02] active:scale-[0.98] transition-all select-none animate-subtle-glow group shadow-xs"
+              id="hdr-naipoints-badge"
+              title={`Your Balance: ${naiPoints.toLocaleString()} NaiPoints • Click to view breakdown in profile`}
+            >
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#FFC107] via-[#FFB300] to-[#FFA000] flex items-center justify-center shadow-xs text-stone-950 shrink-0 group-hover:rotate-12 transition-transform duration-300">
+                <Coins className="w-3.5 h-3.5 text-stone-950" style={{ strokeWidth: 2.3 }} />
+              </div>
+
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-mono font-black text-[14px] text-stone-950 tracking-tight leading-none" id="hdr-naipoints-value">
+                  {naiPoints.toLocaleString()}
+                </span>
+                <span className="text-[10px] font-bold text-amber-900/90 tracking-wide uppercase leading-none font-sans">
+                  NaiPoints
+                </span>
+              </div>
+
+              {/* Subtle ambient pulse indicator dot */}
+              <span className="relative flex h-2 w-2 ml-0.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#FFB300]"></span>
+              </span>
+            </button>
+
             {/* Globe icon representing region */}
-            <button className="p-2 text-stone-700 hover:bg-stone-50 rounded-xl transition cursor-pointer" id="btn-hdr-globe">
+            <button className="p-2 text-stone-700 hover:bg-stone-50 rounded-xl transition cursor-pointer" id="btn-hdr-globe" title="Region: Creative">
               <Globe className="w-[20px] h-[20px]" style={{ strokeWidth: 1.8 }} />
             </button>
 
             {/* Notification bell with red status dot */}
-            <button className="p-2 text-stone-700 hover:bg-stone-50 rounded-xl transition cursor-pointer relative" id="btn-hdr-bell">
+            <button className="p-2 text-stone-700 hover:bg-stone-50 rounded-xl transition cursor-pointer relative" id="btn-hdr-bell" title="Notifications">
               <Bell className="w-[20px] h-[20px]" style={{ strokeWidth: 1.8 }} />
               <span className="absolute top-1.5 right-1.5 w-[7px] h-[7px] bg-[#E53935] rounded-full border border-white"></span>
             </button>
 
-            {/* Dynamic Active User Profile Avatar */}
-            <div className="flex items-center gap-2.5 ml-1 select-none" id="avatar-container-head">
+            {/* Dynamic Active User Profile Avatar & Name - Clickable to open Profile */}
+            <div 
+              onClick={handleAvatarClick}
+              className="flex items-center gap-3 ml-1 select-none cursor-pointer group p-1 rounded-full hover:bg-stone-50 transition" 
+              id="avatar-container-head"
+              title="Click to view your profile"
+            >
               <div className="relative w-10 h-10" id="avatar-ring-head">
                 <img 
                   src={profileAvatarUrl} 
-                  alt="Afolabi Ola" 
-                  className="w-10 h-10 rounded-full object-cover border border-stone-200"
+                  alt={fullName} 
+                  className="w-10 h-10 rounded-full object-cover border border-stone-200 group-hover:ring-2 group-hover:ring-[#FFC107] transition"
                   referrerPolicy="no-referrer"
                   id="img-hdr-avatar"
                 />
@@ -163,8 +241,22 @@ export default function DashboardLayout({ user, activeTab, setActiveTab, onLogou
                 <span className="absolute bottom-0 left-0 w-[11px] h-[11px] bg-[#4CAF50] rounded-full border-2 border-white"></span>
                 
                 {/* Micro cog settings gear overlay on bottom right */}
-                <span className="absolute -bottom-0.5 -right-1 bg-stone-100 hover:bg-stone-200 rounded-full p-[2px] border border-stone-200 cursor-pointer transition-shadow" id="badge-hdr-gear">
-                  <SlidersHorizontal className="w-[10px] h-[10px] text-stone-600 rotate-90" />
+                <button 
+                  onClick={handleSettingsClick}
+                  className="absolute -bottom-0.5 -right-1 bg-stone-100 hover:bg-[#FFC107] rounded-full p-[3px] border border-stone-200 cursor-pointer transition shadow-2xs" 
+                  id="badge-hdr-gear"
+                  title="Profile Settings"
+                >
+                  <Settings className="w-[10px] h-[10px] text-stone-700" />
+                </button>
+              </div>
+
+              <div className="hidden lg:flex flex-col text-left">
+                <span className="text-xs font-bold text-stone-900 group-hover:text-amber-700 transition leading-tight">
+                  {fullName}
+                </span>
+                <span className="text-[10px] font-mono text-stone-400">
+                  View Profile
                 </span>
               </div>
             </div>

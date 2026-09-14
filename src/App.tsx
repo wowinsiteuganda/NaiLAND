@@ -6,7 +6,9 @@ import DashboardHome from './components/DashboardHome';
 import CommunitySection from './components/CommunitySection';
 import CommunityDirectory from './components/CommunityDirectory';
 import MessagesSection from './components/MessagesSection';
-import { ActiveView, DashboardTab, UserProfile, ChatThread, ChatMessage } from './types';
+import UserProfileView from './components/UserProfileView';
+import { getUserProfile, buildProfileFromCurrentUser } from './data/userProfilesData';
+import { ActiveView, DashboardTab, UserProfile, ChatThread, ChatMessage, ProfileUserData } from './types';
 import { Layers, HelpCircle, Eye, MonitorPlay } from 'lucide-react';
 
 export default function App() {
@@ -14,6 +16,10 @@ export default function App() {
   const [activeView, setActiveView] = useState<ActiveView>(ActiveView.LANDING);
   const [activeTab, setActiveTab] = useState<DashboardTab>('dashboard');
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
+  
+  // Profile navigation state
+  const [selectedProfileUser, setSelectedProfileUser] = useState<ProfileUserData | null>(null);
+  const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'collabs' | 'posts' | 'reviews' | 'settings'>('overview');
   
   // Direct Chat trigger parameters
   const [directChatUser, setDirectChatUser] = useState<string | undefined>(undefined);
@@ -62,11 +68,23 @@ export default function App() {
 
   // Authenticated User profile
   const [userProfile, setUserProfile] = useState<UserProfile>({
-    firstName: 'John',
-    secondName: 'Doe',
-    email: 'john.doe@nailand.com',
-    interests: ['Figma', 'UI/UX', 'Mobile Design'],
-    region: 'Africa'
+    firstName: 'Afolabi',
+    secondName: 'Ola',
+    username: 'afolabi_ola',
+    email: 'afolabi.ola@nailand.network',
+    interests: ['Figma Buddies', 'React & TypeScript', 'Web3 Barter', 'Design Systems'],
+    region: 'Creative',
+    role: 'Lead Product Designer & Web3 Architect',
+    bio: 'Crafting decentralised exchange interfaces, fluid design tokens, and next-generation African creative networks.',
+    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=240',
+    banner: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200',
+    location: 'Lagos, Nigeria',
+    website: 'https://afolabiola.design',
+    github: 'github.com/afolabiola',
+    figma: 'figma.com/@afolabiola',
+    twitter: 'x.com/afolabiola',
+    rate: '50 NaiTokens / hr',
+    naiPoints: 2450
   });
 
   // Prototype walkthrough floaty control tab
@@ -106,6 +124,29 @@ export default function App() {
     }
     
     setActiveTab('messages');
+  };
+
+  // Open any person's profile
+  const handleViewProfile = (personName: string, avatar?: string, initialTab: 'overview' | 'collabs' | 'posts' | 'reviews' | 'settings' = 'overview') => {
+    const currentFullName = `${userProfile.firstName || ''} ${userProfile.secondName || ''}`.trim();
+    const isMe = personName.toLowerCase() === currentFullName.toLowerCase() || personName.toLowerCase() === 'me';
+    
+    if (isMe) {
+      setSelectedProfileUser(buildProfileFromCurrentUser(userProfile));
+    } else {
+      setSelectedProfileUser(getUserProfile(personName, avatar));
+    }
+    setProfileInitialTab(initialTab);
+    setActiveTab('profile');
+    setActiveView(ActiveView.APP_LAYOUT);
+  };
+
+  // Open current user's own profile and optional settings tab
+  const handleViewOwnProfile = (openSettings = false) => {
+    setSelectedProfileUser(buildProfileFromCurrentUser(userProfile));
+    setProfileInitialTab(openSettings ? 'settings' : 'overview');
+    setActiveTab('profile');
+    setActiveView(ActiveView.APP_LAYOUT);
   };
 
   return (
@@ -202,6 +243,18 @@ export default function App() {
               </button>
 
               <button 
+                onClick={() => {
+                  handleViewOwnProfile(false);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold cursor-pointer transition whitespace-nowrap
+                  ${activeView === ActiveView.APP_LAYOUT && activeTab === 'profile'
+                    ? 'bg-[#f8c21a] text-stone-950 font-black' 
+                    : 'bg-stone-800 hover:bg-stone-700 text-stone-300'}`}
+              >
+                6. My Profile & Settings
+              </button>
+
+              <button 
                 onClick={() => setShowWalkthrough(false)}
                 className="text-stone-500 hover:text-white text-lg font-bold pl-1 border-l border-stone-800 ml-1.5 whitespace-nowrap"
                 title="Hide Preset Navigator"
@@ -265,6 +318,7 @@ export default function App() {
             onLogout={() => {
               setActiveView(ActiveView.LANDING);
             }}
+            onOpenOwnProfile={handleViewOwnProfile}
           >
             {/* Active Nested Tab rendering */}
             {activeTab === 'dashboard' && (
@@ -275,6 +329,7 @@ export default function App() {
                   setActiveTab('community');
                 }}
                 onSelectDirectChat={handleSelectDirectChat}
+                onViewProfile={(name, avatar) => handleViewProfile(name, avatar)}
               />
             )}
 
@@ -285,6 +340,7 @@ export default function App() {
                   onBackToDashboard={() => {
                     setSelectedCommunity(null);
                   }}
+                  onViewProfile={(name, avatar) => handleViewProfile(name, avatar)}
                 />
               ) : (
                 <CommunityDirectory 
@@ -306,6 +362,25 @@ export default function App() {
                 clearDirectChatTrigger={() => {
                   setDirectChatUser(undefined);
                   setDirectChatAvatar(undefined);
+                }}
+              />
+            )}
+
+            {activeTab === 'profile' && (
+              <UserProfileView 
+                user={selectedProfileUser || buildProfileFromCurrentUser(userProfile)}
+                currentUser={userProfile}
+                isSelf={
+                  !selectedProfileUser ||
+                  selectedProfileUser.name.toLowerCase() === `${userProfile.firstName || ''} ${userProfile.secondName || ''}`.trim().toLowerCase() ||
+                  selectedProfileUser.id === 'usr-me'
+                }
+                initialTab={profileInitialTab}
+                onBack={() => setActiveTab('dashboard')}
+                onDirectMessage={handleSelectDirectChat}
+                onUpdateCurrentUser={(updated) => {
+                  setUserProfile(updated);
+                  setSelectedProfileUser(buildProfileFromCurrentUser(updated));
                 }}
               />
             )}

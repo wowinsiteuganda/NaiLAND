@@ -236,7 +236,7 @@ export default function LandingPage({ onSignUpClick, onLogInClick, onExploreSkil
           {/* Floating Card 3: Bottom Left (NFT Community) */}
           <div className="absolute bottom-6 left-1/4 -start-8 md:left-8 z-30 bg-white/95 border border-stone-200 shadow-md p-4 rounded-2xl w-72 text-left backdrop-blur-sm" id="float-card-3">
             <div className="flex items-center gap-2 mb-2" id="float-3-header">
-              <span className="p-1 bg-emerald-50 rounded-md text-emerald-600">🟢</span>
+              <span className="p-1 bg-emerald-50 rounded-md text-emerald-600 text-xs">🟢</span>
               <span className="font-semibold text-xs text-stone-900" id="float-3-title">NFT Community</span>
             </div>
             <p className="text-[11px] text-stone-600 leading-relaxed mb-1.5" id="float-3-body">
@@ -605,8 +605,6 @@ export default function LandingPage({ onSignUpClick, onLogInClick, onExploreSkil
                   }}
                   id="text-input-wrapper-container"
                 >
-                  {/* Label Container is Display: none */}
-
                   {/* Text Container */}
                   <div 
                     className="flex flex-row items-center w-full bg-white transition-all cursor-text focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-200"
@@ -1082,16 +1080,11 @@ export default function LandingPage({ onSignUpClick, onLogInClick, onExploreSkil
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const clickY = e.clientY - rect.top;
-                const ratio = clickY / rect.height;
-                if (ratio < 0.33) {
-                  setActiveScrollRow(0);
-                } else if (ratio < 0.66) {
-                  setActiveScrollRow(1);
-                } else {
-                  setActiveScrollRow(2);
-                }
+                if (clickY < 110) setActiveScrollRow(0);
+                else if (clickY < 220) setActiveScrollRow(1);
+                else setActiveScrollRow(2);
               }}
-              id="scrollbar-custom-track"
+              id="scrollbar-track"
             >
               {/* Bar */}
               <div 
@@ -1108,373 +1101,184 @@ export default function LandingPage({ onSignUpClick, onLogInClick, onExploreSkil
               />
             </div>
           </div>
-
         </div>
       </section>
 
-      {/* WEB3 COMMUNITY GRADIENT SECTION */}
-      <section className="relative w-full bg-[#0E0907] flex justify-center items-center overflow-hidden py-10" id="web3-community-figma-section">
-        {/* Style block to ensure responsiveness and exact layout properties */}
-        <style dangerouslySetInnerHTML={{__html: `
-          #community-parent-box {
-            isolation: isolate;
-          }
-          @media (max-width: 1439px) {
-            #community-outer-scroll {
-              overflow-x: auto;
-              scrollbar-width: none; /* Firefox */
-            }
-            #community-outer-scroll::-webkit-scrollbar {
-              display: none; /* Chrome, Safari, Opera */
-            }
-          }
-        `}} />
+      {/* WEB3 COMMUNITY GRADIENT SECTION (EXACT FIGMA AUTO-LAYOUT REPRODUCTION) */}
+      <section className="relative w-full bg-[#0E0907] overflow-hidden py-16 px-4 flex justify-center items-center" id="web3-community-figma-section">
+        {/* Glowing Background Radial Accents */}
+        <div 
+          className="absolute w-[478px] h-[478px] -left-20 top-1/4 rounded-full pointer-events-none opacity-50 blur-2xl"
+          style={{
+            background: 'radial-gradient(50% 50% at 50% 50%, rgba(234, 179, 0, 0.45) 56.24%, #301405 100%)',
+          }}
+          id="ellipse-glow-4"
+        />
+        <div 
+          className="absolute w-[673px] h-[673px] -right-20 -top-20 rounded-full pointer-events-none opacity-40 blur-2xl"
+          style={{
+            background: 'radial-gradient(50% 50% at 50% 50%, rgba(234, 179, 0, 0.45) 56.24%, #301405 100%)',
+          }}
+          id="ellipse-glow-5"
+        />
 
-        {/* Outer scrolling container for responsive mobile swiping */}
-        <div className="w-full max-w-full" id="community-outer-scroll">
-          
-          {/* Frame 574 - Self Container */}
+        {/* Frame 574 (The Outer Parent Gradient Container) */}
+        <div 
+          className="relative rounded-[24px] overflow-hidden flex flex-col items-center justify-center select-none shadow-2xl"
+          style={{
+            width: '1200px',
+            maxWidth: '96vw',
+            height: '716px',
+            background: 'linear-gradient(89.68deg, #0E0907 2.5%, #AA0F20 99.72%)',
+            padding: '48px 48px 0px 48px',
+          }}
+          id="community-frame-574"
+        >
+          {/* Frame 617 (Inner Column Wrapper) */}
           <div 
-            className="relative mx-auto shrink-0 select-none overflow-hidden"
+            className="flex flex-col items-center justify-between w-full h-full"
             style={{
-              width: '1440px',
-              height: '964px',
-              background: 'linear-gradient(89.68deg, #0E0907 2.5%, #AA0F20 99.72%)',
+              gap: '40px'
             }}
-            id="community-parent-box"
+            id="community-frame-617"
           >
-            {/* Ellipse 4 - Glowing golden background orb */}
+            {/* Frame 561 (Top Content Row: Text on Left + Button on Right) */}
             <div 
+              className="flex flex-row items-center justify-between w-full"
               style={{
-                position: 'absolute',
-                width: '606px',
-                height: '606px',
-                left: '-192px',
-                top: '386px',
-                borderRadius: '50%',
-                background: 'radial-gradient(50% 50% at 50% 50%, rgba(234, 179, 0, 0.45) 56.24%, #301405 100%)',
-                filter: 'blur(50px)',
-                pointerEvents: 'none',
-                zIndex: 1
+                maxWidth: '1104px',
+                height: '116px',
+                gap: '16px'
               }}
-              id="ellipse-glow-4"
-            />
-
-            {/* Ellipse 5 - Glowing golden background orb */}
-            <div 
-              style={{
-                position: 'absolute',
-                width: '878px',
-                height: '875px',
-                left: '518px',
-                top: '-229px',
-                borderRadius: '50%',
-                background: 'radial-gradient(50% 50% at 50% 50%, rgba(234, 179, 0, 0.45) 56.24%, #301405 100%)',
-                filter: 'blur(50px)',
-                pointerEvents: 'none',
-                zIndex: 1
-              }}
-              id="ellipse-glow-5"
-            />
-
-            {/* Frame 617 - Auto Layout holding Content */}
-            <div 
-              className="absolute flex flex-col items-start"
-              style={{
-                width: '1440px',
-                height: '856px',
-                left: '0px',
-                top: '100px',
-                gap: '50px',
-                zIndex: 10
-              }}
-              id="community-frame-617"
+              id="community-frame-561"
             >
-              
-              {/* Frame 561 - Text banner and Button action row */}
+              {/* Frame 560 (Text Container) */}
               <div 
-                className="flex flex-row items-start shrink-0"
+                className="flex flex-col items-start"
                 style={{
-                  width: '1440px',
-                  height: '202px',
-                  padding: '0px 0px 0px 124px',
-                  gap: '171px'
+                  width: '840px',
+                  height: '116px',
+                  gap: '16px'
                 }}
-                id="community-frame-561"
+                id="community-frame-560"
               >
-                
-                {/* Frame 560 - Info Content */}
-                <div 
-                  className="flex flex-col items-start text-left shrink-0"
+                {/* Create Your Web3 Experience Community (Heading) */}
+                <span 
                   style={{
-                    width: '832px',
-                    height: '202px',
-                    gap: '30px'
+                    fontFamily: '"Lora", "Playfair Display", Georgia, serif',
+                    fontWeight: 400,
+                    fontSize: '40px',
+                    lineHeight: '48px',
+                    letterSpacing: '-0.005em',
+                    color: '#FDFDFD',
+                    width: '741px',
+                    height: '48px'
                   }}
-                  id="community-frame-560"
+                  id="community-title-heading"
                 >
-                  {/* Heading Title */}
-                  <h2 
-                    style={{
-                      width: '754px',
-                      height: '112px',
-                      fontFamily: '"Lora", Georgia, serif',
-                      fontWeight: 400,
-                      fontSize: '48px',
-                      lineHeight: '56px',
-                      letterSpacing: '-0.005em',
-                      color: '#FDFDFD'
-                    }}
-                    id="community-title-heading"
-                  >
-                    Create Your Web3 Experience Community
-                  </h2>
+                  Create Your Web3 Experience Community
+                </span>
 
-                  {/* Deep description */}
-                  <p 
-                    style={{
-                      width: '832px',
-                      height: '60px',
-                      fontFamily: '"Lora", Georgia, serif',
-                      fontWeight: 400,
-                      fontSize: '24px',
-                      lineHeight: '30px',
-                      letterSpacing: '-0.0025em',
-                      color: '#FDFDFD',
-                      opacity: 0.95
-                    }}
-                    id="community-desc-para"
-                  >
-                    Creates space for people to build real experience, trade skills, collaborate on project and earn NaiPoint through honest collaboration
-                  </p>
-                </div>
-
-                {/* Yellow black action pill Button */}
-                <button 
-                  onClick={onSignUpClick}
-                  className="shrink-0 transition-all duration-300 hover:brightness-105 active:scale-95 shadow-md shadow-black/20 hover:shadow-lg hover:shadow-black/30 cursor-pointer whitespace-nowrap"
+                {/* Creates space for people to build real experience... (Paragraph) */}
+                <p 
                   style={{
-                    boxSizing: 'border-box',
-                    display: 'flex',
-                    flexDirection: 'row',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    padding: '12px 24px',
-                    gap: '16px',
-                    width: '193px',
-                    height: '48px',
-                    background: '#FFC107',
-                    border: '1px solid #100F0F',
-                    borderRadius: '40px'
+                    fontFamily: '"Lora", Georgia, serif',
+                    fontWeight: 400,
+                    fontSize: '20px',
+                    lineHeight: '26px',
+                    letterSpacing: '-0.005em',
+                    color: '#FDFDFD',
+                    width: '840px',
+                    height: '52px'
                   }}
-                  id="community-btn-join"
+                  id="community-desc-para"
                 >
-                  <span 
-                    style={{
-                      fontFamily: '"Public Sans", Inter, sans-serif',
-                      fontWeight: 500,
-                      fontSize: '16px',
-                      lineHeight: '24px',
-                      letterSpacing: '0.002em',
-                      color: '#100F0F',
-                      textAlign: 'center',
-                      whiteSpace: 'nowrap'
-                    }}
-                    id="community-btn-text"
-                  >
-                    Create Community
-                  </span>
-                </button>
-
+                  Creates space for people to build real experience, trade skills, collaborate on project and earn NaiPoint through honest collaboration
+                </p>
               </div>
 
-              {/* Image gallery box container - F1F1F1 background */}
-              <div 
-                className="shrink-0 relative"
+              {/* Frame 559 (Create Community CTA Button) */}
+              <button 
+                onClick={onSignUpClick}
+                className="flex flex-row justify-center items-center shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer select-none group"
                 style={{
-                  width: '1440px',
-                  height: '604px',
-                  background: '#F1F1F1'
+                  boxSizing: 'border-box',
+                  padding: '10px 24px',
+                  gap: '10px',
+                  width: '185px',
+                  height: '52px',
+                  background: '#FFC107',
+                  border: '1px solid #100F0F',
+                  borderRadius: '100px'
                 }}
-                id="community-image-gallery"
+                id="community-frame-559-btn"
               >
-                
-                {/* Frame 14419 - Top Row containing 3 image columns */}
-                <div 
-                  className="absolute flex flex-row items-start"
+                <span 
                   style={{
-                    width: '723px',
-                    height: '224px',
-                    left: '0px',
-                    top: '0px',
-                    padding: '0px'
+                    fontFamily: "'Public Sans', Inter, sans-serif",
+                    fontWeight: 500,
+                    fontSize: '16px',
+                    lineHeight: '22px',
+                    letterSpacing: '0.003em',
+                    color: '#100F0F'
                   }}
-                  id="gallery-frame-14419"
+                  id="community-btn-text"
                 >
-                  {/* Frame 14411 */}
-                  <div 
-                    style={{
-                      width: '243px',
-                      height: '224px',
-                      backgroundImage: 'url("https://images.unsplash.com/photo-1542744094-3a31f103e35f?auto=format&fit=crop&q=80&w=400")',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      borderRight: '1.5px solid #F1F1F1',
-                      borderBottom: '1.5px solid #F1F1F1'
-                    }}
-                    id="gallery-frame-14411"
-                  />
-                  {/* Frame 14412 */}
-                  <div 
-                    style={{
-                      width: '240px',
-                      height: '224px',
-                      backgroundImage: 'url("https://images.unsplash.com/photo-1531535934208-95d4eb87557c?auto=format&fit=crop&q=80&w=400")',
-                      backgroundColor: '#B88888',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      borderRight: '1.5px solid #F1F1F1',
-                      borderBottom: '1.5px solid #F1F1F1'
-                    }}
-                    id="gallery-frame-14412"
-                  />
-                  {/* Frame 14417 */}
-                  <div 
-                    style={{
-                      width: '240px',
-                      height: '224px',
-                      backgroundImage: 'url("https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=400")',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      borderRight: '1.5px solid #F1F1F1',
-                      borderBottom: '1.5px solid #F1F1F1'
-                    }}
-                    id="gallery-frame-14417"
-                  />
-                </div>
-
-                {/* Frame 14413 (First occurrence) - Middle span background overlay block */}
-                <div 
-                  className="absolute"
-                  style={{
-                    left: '0px',
-                    right: '0px',
-                    top: '224px',
-                    bottom: '224px',
-                    backgroundImage: 'url("https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=800")',
-                    backgroundColor: '#B88888',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center 40%',
-                    borderBottom: '1.5px solid #F1F1F1'
-                  }}
-                  id="gallery-frame-14413-primary"
-                />
-
-                {/* Frame 14413 (Second occurrence) - Flipped bottom-left overlay */}
-                <div 
-                  className="absolute"
-                  style={{
-                    left: '0px',
-                    right: '479px',
-                    top: '380px',
-                    bottom: '0px',
-                    backgroundImage: 'url("https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&q=80&w=600")',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    transform: 'matrix(1, 0, 0, -1, 0, 0)',
-                    borderRight: '1.5px solid #F1F1F1'
-                  }}
-                  id="gallery-frame-14413-scnd"
-                />
-
-                {/* Frame 14413 (Third occurrence) - Top right flipped span */}
-                <div 
-                  className="absolute"
-                  style={{
-                    left: '243px',
-                    right: '0px',
-                    top: '0px',
-                    bottom: '380px',
-                    backgroundImage: 'url("https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=800")',
-                    backgroundColor: '#FEDCDC',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    transform: 'matrix(1, 0, 0, -1, 0, 0)',
-                    borderLeft: '1.5px solid #F1F1F1'
-                  }}
-                  id="gallery-frame-14413-third"
-                />
-
-                {/* Frame 14414 - Mid-bottom span */}
-                <div 
-                  className="absolute"
-                  style={{
-                    left: '243px',
-                    right: '0px',
-                    top: '448px',
-                    bottom: '0px',
-                    backgroundImage: 'url("https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&q=80&w=800")',
-                    backgroundColor: '#8B6F6F',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    borderLeft: '1.5px solid #F1F1F1'
-                  }}
-                  id="gallery-frame-14414"
-                />
-
-                {/* Frame 14415 - Flipped overlapping rectangle in bottom right */}
-                <div 
-                  className="absolute"
-                  style={{
-                    left: '482px',
-                    right: '0px',
-                    top: '380px',
-                    bottom: '156px',
-                    backgroundImage: 'url("https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=600")',
-                    backgroundColor: '#9F4343',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    transform: 'matrix(1, 0, 0, -1, 0, 0)'
-                  }}
-                  id="gallery-frame-14415"
-                />
-
-                {/* Frame 14416 - Flipped extreme bottom-right strip */}
-                <div 
-                  className="absolute"
-                  style={{
-                    left: '482px',
-                    right: '0px',
-                    top: '529px',
-                    bottom: '0px',
-                    backgroundImage: 'url("https://images.unsplash.com/photo-1581291518655-9523c932dedf?auto=format&fit=crop&q=80&w=600")',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    transform: 'matrix(1, 0, 0, -1, 0, 0)'
-                  }}
-                  id="gallery-frame-14416"
-                />
-
-                {/* Heart 3 placeholder with absolute coordinates (hidden as requested) */}
-                <div 
-                  style={{
-                    position: 'absolute',
-                    visibility: 'hidden',
-                    width: '164px',
-                    height: '142.29px',
-                    left: '38px',
-                    top: '41px',
-                    background: '#FFFFFF'
-                  }}
-                  id="gallery-heart-3"
-                />
-
-              </div>
-
+                  Create Community
+                </span>
+              </button>
             </div>
 
-          </div>
+            {/* Frame 562 (The Big Community Graphics Stage 3-Row Strip Image Frame) */}
+            <div 
+              className="w-full rounded-t-[16px] overflow-hidden relative shadow-2xl flex flex-col justify-between"
+              style={{
+                maxWidth: '1104px',
+                height: '464px',
+                background: '#1a0507',
+              }}
+              id="community-frame-562"
+            >
+              {/* Row 1: Top horizontal strip (White box on left + skyscrapers looking up) */}
+              <div className="w-full h-1/3 flex overflow-hidden border-b border-white/10" id="community-strip-row-1">
+                <div 
+                  className="w-48 sm:w-60 md:w-72 h-full bg-[#f4f4f4] shrink-0" 
+                  id="community-strip-1-blank-box" 
+                />
+                <div className="flex-1 h-full overflow-hidden">
+                  <img 
+                    src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=1400" 
+                    alt="Modern Skyscrapers" 
+                    className="w-full h-full object-cover object-bottom" 
+                    referrerPolicy="no-referrer"
+                    id="community-img-skyscrapers"
+                  />
+                </div>
+              </div>
 
+              {/* Row 2: Middle horizontal strip (Developer with headphones & workspace monitors) */}
+              <div className="w-full h-1/3 overflow-hidden border-b border-white/10" id="community-strip-row-2">
+                <img 
+                  src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=1400" 
+                  alt="Developers Collaborating" 
+                  className="w-full h-full object-cover object-[center_35%]" 
+                  referrerPolicy="no-referrer"
+                  id="community-img-developers"
+                />
+              </div>
+
+              {/* Row 3: Bottom horizontal strip (Overhead desk setup with gadgets, cables, devices & charts) */}
+              <div className="w-full h-1/3 overflow-hidden" id="community-strip-row-3">
+                <img 
+                  src="https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&q=80&w=1400" 
+                  alt="Collaborative workspace devices" 
+                  className="w-full h-full object-cover object-[center_55%]" 
+                  referrerPolicy="no-referrer"
+                  id="community-img-gadgets"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
